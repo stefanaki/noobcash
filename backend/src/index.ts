@@ -1,5 +1,5 @@
 import config from './config';
-// import Wallet from './entities/wallet.entity';
+import Wallet from './entities/wallet.entity';
 import Node from './entities/node.entity';
 
 // logger.silly('I am a silly log.');
@@ -11,8 +11,8 @@ import Node from './entities/node.entity';
 // logger.fatal(new Error('I am a pretty Error with a stacktrace.'));
 
 console.log(config);
-// const w = new Wallet();
-// console.log(w)
+const w = new Wallet();
+console.log(w)
 
 const n = new Node();
 console.log(n);
