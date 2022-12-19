@@ -32,7 +32,7 @@ export default class Node implements INode {
 	protected async broadcast(
 		method: HttpRequestMethod,
 		endpoint: string,
-		body: any
+		body?: any
 	) {
 		logger.info(`Broadcast ${method} /${endpoint}`);
 		try {
