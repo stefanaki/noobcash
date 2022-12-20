@@ -27,7 +27,7 @@
     ```sh
     sudo docker run -it \
     --net nb-net \
-    --ip 192.168.1.1${NODE_INDEX} \
+    --ip 192.168.0.1${NODE_INDEX} \
     -p 300${NODE_INDEX}:300${NODE_INDEX} \
     -e NODE_INDEX=${NODE_INDEX} \
     -e IS_BOOTSTRAP=${IS_BOOTSTRAP} \
