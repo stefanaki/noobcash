@@ -7,16 +7,16 @@
 
 2. Create a bridge network for all the nodes
     ```sh
-    sudo docker network create --subnet=192.168.0.0/24 nb-net
+    sudo docker network create --subnet=192.168.1.0/24 nb-net
     ```
 
 3. Insert node specific environment variables
     ```sh
     NODE_INDEX=8 \
-    URL=http://192.168.0.${NODE_INDEX} \
+    URL=http://192.168.1.${NODE_INDEX} \
     PORT=300${NODE_INDEX} \
     IS_BOOTSTRAP=true \
-    BOOTSTRAP_URL=http://192.168.0.207 \
+    BOOTSTRAP_URL=http://192.168.1.0 \
     DIFFICULTY=4 \
     BLOCK_CAPACITY=10 \
     PASSPHRASE=asdf \
@@ -27,7 +27,7 @@
     ```sh
     sudo docker run -it \
     --net nb-net \
-    --ip 192.168.0.${NODE_INDEX} \
+    --ip 192.168.1.${NODE_INDEX} \
     -p 300${NODE_INDEX}:300${NODE_INDEX} \
     -e NODE_INDEX=${NODE_INDEX} \
     -e IS_BOOTSTRAP=${IS_BOOTSTRAP} \
