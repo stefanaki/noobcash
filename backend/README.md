@@ -15,7 +15,7 @@
     NODE_INDEX=8 \
     URL=http://192.168.1.${NODE_INDEX} \
     PORT=300${NODE_INDEX} \
-    IS_BOOTSTRAP=true \
+    IS_BOOTSTRAP=false \
     BOOTSTRAP_URL=http://192.168.1.0 \
     DIFFICULTY=4 \
     BLOCK_CAPACITY=10 \
