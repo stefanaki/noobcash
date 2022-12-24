@@ -7,7 +7,7 @@ export default {
 	isBootstrap: process.env.IS_BOOTSTRAP === 'true',
 	difficulty: Number(process.env.DIFFICULTY ?? 5),
 	numOfNodes: Number(process.env.NUM_NODES ?? 5),
-	url: process.env.URL ?? 'http://192.168.0.1',
+	url: process.env.URL ?? 'http://192.168.0.10',
 	port: process.env.PORT ?? '3000',
 	blockCapacity: Number(process.env.BLOCK_CAPACITY ?? 5),
 	passphrase: process.env.PASSPHRASE ?? 'dev',

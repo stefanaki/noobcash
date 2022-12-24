@@ -14,7 +14,20 @@ export default class Node implements INode {
 	wallet: IWallet;
 	url: string;
 	port: string;
-	nodeInfo: INode[];
+	nodeInfo: INode[] = [
+		{
+			url: "http://192.168.0.18",
+			port: "3008"
+		},
+		{
+			url: "http://192.168.0.19",
+			port: "3009"
+		},
+		{
+			url: "http://192.168.0.110",
+			port: "30010"
+		}
+	];
 	transactionService: TransactionService;
 	minerService: MinerService;
 	blockchainService: BlockchainService;
@@ -29,7 +42,7 @@ export default class Node implements INode {
 		logger.info('Noobcash node initialized');
 	}
 
-	protected async broadcast(
+	public async broadcast(
 		method: HttpRequestMethod,
 		endpoint: string,
 		body?: any
@@ -48,5 +61,9 @@ export default class Node implements INode {
 		} catch (error) {
 			logger.error(error);
 		}
+	}
+
+	public getWalletBalance() {
+		
 	}
 }
