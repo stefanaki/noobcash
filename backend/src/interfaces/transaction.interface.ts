@@ -4,7 +4,7 @@ export default interface ITransaction {
 	receiverAddress: string;
 	amount: number;
 	timestamp: Date;
-	signature: string;
+	signature?: Buffer;
 	transactionInputs: ITransactionInput[];
 	transactionOutputs: ITransactionOutput[];
 }
@@ -19,7 +19,6 @@ export interface ITransactionOutput {
     transactionId: string;
     receiverAddress: string;
     amount: number;
-    isUnspent: boolean; // to vlepoume
 }
 
 export interface IUnspentTransactionOutput {
