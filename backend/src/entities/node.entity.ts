@@ -1,6 +1,5 @@
 import config from '../config';
 import INode from '../interfaces/node.interface';
-import IWallet from '../interfaces/wallet.interface';
 import Wallet from './wallet.entity';
 import logger from '../utilities/logger';
 import fetch from 'node-fetch';
@@ -11,7 +10,7 @@ import BlockchainService from '../services/blockchain.service';
 type HttpRequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export default class Node implements INode {
-	wallet: IWallet;
+	wallet: Wallet;
 	url: string;
 	port: string;
 	nodeInfo: INode[] = [

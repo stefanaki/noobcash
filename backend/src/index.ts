@@ -45,24 +45,18 @@ app.post(
 
 // Get wallet balance
 app.get('/balance', (_, res: Response) => {
-	
+
 })
 
 if (config.node === 8) node.broadcast('GET', 'healthcheck');
 
-const t = new Transaction({
+new Transaction({
 	senderAddress: node.wallet.publicKey,
 	receiverAddress: '321',
 	amount: 5,
 	transactionInputs: [],
 	transactionOutputs: []
 });
-
-logger.warn(Transaction.verifySignature(t));
-Transaction.signTransaction(t, node.wallet.privateKey);
-logger.warn(Transaction.verifySignature(t));
-
-logger.info(t);
 
 app.listen(config.port, () =>
 	logger.info(

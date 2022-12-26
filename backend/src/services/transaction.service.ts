@@ -56,9 +56,11 @@ export default class TransactionService {
 		});
 	}
 
+	validateTransaction(t: Transaction) {}
+
 	findTransactionInputs(
 		t: Transaction,
-		utxoList: IUnspentTransactionOutput
+		senderUtxos: IUnspentTransactionOutput
 	): {
 		newTransactionInputs: TransactionInput[];
 		toBeSpentUtxos: TransactionOutput[];
@@ -67,7 +69,7 @@ export default class TransactionService {
 		let totalUtxoAmount = 0;
 		let toBeSpentUtxos: TransactionOutput[] = [];
 
-		for (let utxo of utxoList.utxos) {
+		for (let utxo of senderUtxos.utxos) {
 			if (totalUtxoAmount >= t.amount) break;
 
 			totalUtxoAmount += utxo.amount;
@@ -80,7 +82,7 @@ export default class TransactionService {
 		}
 
 		logger.info(
-			`Found enough UTXO's to fullfill transaction ${t.transactionId}`
+			`Found enough UTXO's to fulfill transaction ${t.transactionId}`
 		);
 
 		let newTransactionInputs = toBeSpentUtxos.map(
