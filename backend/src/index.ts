@@ -2,7 +2,6 @@ import config from './config';
 import Node from './entities/node.entity';
 import logger from './utilities/logger';
 import express, { Request, Response } from 'express';
-import Transaction from './entities/transaction.entity';
 import BootstrapNode from './entities/bootstrap-node.entity';
 import IBlock from './interfaces/block.interface';
 import INode from './interfaces/node.interface';
@@ -11,8 +10,11 @@ import ITransaction from './interfaces/transaction.interface';
 const app = express();
 let node: Node;
 
-if (config.isBootstrap) node = new BootstrapNode();
-else node = new Node();
+if (config.isBootstrap) {
+	node = new BootstrapNode();
+} else {
+	node = new Node();
+}
 
 // REST endpoints
 
@@ -23,15 +25,15 @@ app.get('/healthcheck', (_, res: Response) => {
 });
 
 // Connect node to ring
-app.post('/connect', () => {});
+app.post(
+	'/ring',
+	(req: Request<any, any, { nodeInfo: INode; publicKey: string }>, res: Response) => {}
+);
 
 // Initialize chain and node information
 app.post(
 	'/blockchain',
-	(
-		req: Request<any, any, { genesisBlock: IBlock; nodes: INode[] }>,
-		res: Response
-	) => {}
+	(req: Request<any, any, { genesisBlock: IBlock; nodes: INode[] }>, res: Response) => {}
 );
 
 // Get all transactions
@@ -44,22 +46,8 @@ app.post(
 );
 
 // Get wallet balance
-app.get('/balance', (_, res: Response) => {
+app.get('/balance', (_, res: Response) => {});
 
-})
+if (config.node === 8) setTimeout(() => node.broadcast('GET', 'healthcheck'), 5000);
 
-if (config.node === 8) node.broadcast('GET', 'healthcheck');
-
-new Transaction({
-	senderAddress: node.wallet.publicKey,
-	receiverAddress: '321',
-	amount: 5,
-	transactionInputs: [],
-	transactionOutputs: []
-});
-
-app.listen(config.port, () =>
-	logger.info(
-		`Node ${config.node} started listening on ${config.url}:${config.port}...`
-	)
-);
+app.listen(config.port, () => logger.info(`Started listening on ${config.url}:${config.port}`));

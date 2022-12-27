@@ -22,12 +22,7 @@ export default class TransactionService {
 	verifySignature(t: Transaction): boolean {
 		if (!t.signature) return false;
 
-		const signatureData = {
-			transactionId: t.transactionId,
-			senderAddress: t.senderAddress,
-			receiverAddress: t.receiverAddress,
-			amount: t.amount
-		};
+		const signatureData = this.getVerifiableTransactionData(t);
 
 		try {
 			verify(
@@ -44,12 +39,8 @@ export default class TransactionService {
 	}
 
 	signTransaction(t: Transaction, privateKey: string) {
-		const signatureData = {
-			transactionId: t.transactionId,
-			senderAddress: t.senderAddress,
-			receiverAddress: t.receiverAddress,
-			amount: t.amount
-		};
+		const signatureData = this.getVerifiableTransactionData(t);
+
 		t.signature = sign('sha256', Buffer.from(JSON.stringify(signatureData)), {
 			key: privateKey,
 			passphrase: config.passphrase
@@ -81,13 +72,10 @@ export default class TransactionService {
 			return null;
 		}
 
-		logger.info(
-			`Found enough UTXO's to fulfill transaction ${t.transactionId}`
-		);
+		logger.info(`Found enough UTXO's to fulfill transaction ${t.transactionId}`);
 
 		let newTransactionInputs = toBeSpentUtxos.map(
-			(utxo): TransactionInput =>
-				new TransactionInput(utxo.outputId, utxo.amount)
+			(utxo): TransactionInput => new TransactionInput(utxo.outputId, utxo.amount)
 		);
 
 		return {
@@ -97,24 +85,26 @@ export default class TransactionService {
 		};
 	}
 
-	createTransactionOutputs(
-		t: Transaction,
-		totalUtxoAmount: number
-	): TransactionOutput[] {
+	createTransactionOutputs(t: Transaction, totalUtxoAmount: number): TransactionOutput[] {
 		let newTransactionOutputs: TransactionOutput[] = [
 			new TransactionOutput(t.transactionId, t.receiverAddress, t.amount)
 		];
-		
+
 		if (totalUtxoAmount > t.amount) {
 			newTransactionOutputs.push(
-				new TransactionOutput(
-					t.transactionId,
-					t.senderAddress,
-					totalUtxoAmount - t.amount
-				)
+				new TransactionOutput(t.transactionId, t.senderAddress, totalUtxoAmount - t.amount)
 			);
 		}
 
 		return newTransactionOutputs;
+	}
+
+	getVerifiableTransactionData(t: Transaction) {
+		return {
+			transactionId: t.transactionId,
+			senderAddress: t.senderAddress,
+			receiverAddress: t.receiverAddress,
+			amount: t.amount
+		};
 	}
 }

@@ -1,4 +1,4 @@
-export default interface Wallet {
+export default interface IWallet {
     publicKey: string;
     privateKey: string;
 }
