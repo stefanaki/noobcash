@@ -19,10 +19,10 @@
     PORT=300${NODE_INDEX} \
     IS_BOOTSTRAP=false \
     BOOTSTRAP_URL=http://192.168.0.10 \
+    BOOTSTRAP_PORT=3000 \
     DIFFICULTY=4 \
     BLOCK_CAPACITY=10 \
     PASSPHRASE=asdf \
-    IS_PRODUCTION=true
     ```
 
 4. Run the container

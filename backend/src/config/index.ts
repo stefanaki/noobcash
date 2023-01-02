@@ -11,5 +11,6 @@ export default {
 	port: process.env.PORT ?? '3000',
 	blockCapacity: Number(process.env.BLOCK_CAPACITY ?? 5),
 	passphrase: process.env.PASSPHRASE ?? 'dev',
-	isProduction: process.env.IS_PRODUCTION === 'true'
+	bootstrapUrl: process.env.BOOTSTRAP_URL ?? 'http://192.168.0.10',
+	bootstrapPort: process.env.BOOTSTRAP_PORT ?? '3000',
 };
