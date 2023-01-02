@@ -33,7 +33,6 @@ export default class BlockchainService {
 
 		try {
 			const currentBlock = this.getBlock(index);
-			const previousBlock = this.getBlock(index - 1);
 
 			// Current block hash matches verifiable data
 			if (hash(this.getValidatableBlockData(currentBlock)) !== currentBlock.currentHash)
@@ -41,6 +40,7 @@ export default class BlockchainService {
 
 			// Previous block is genesis block
 			if (index - 1 === 0) return true;
+			const previousBlock = this.getBlock(index - 1);
 
 			// Previous hash of current block matches hash of previous block
 			if (hash(this.getValidatableBlockData(previousBlock)) !== currentBlock.previousHash)

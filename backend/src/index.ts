@@ -8,13 +8,7 @@ import INode from './interfaces/node.interface';
 import ITransaction from './interfaces/transaction.interface';
 
 const app = express();
-let node: Node;
-
-if (config.isBootstrap) {
-	node = new BootstrapNode();
-} else {
-	node = new Node();
-}
+const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
 
 // REST endpoints
 
@@ -24,11 +18,19 @@ app.get('/healthcheck', (_, res: Response) => {
 	res.status(200).json({ message: 'OK' });
 });
 
-// Connect node to ring
-app.post(
-	'/ring',
-	(req: Request<any, any, { nodeInfo: INode; publicKey: string }>, res: Response) => {}
-);
+// Connect node to ring (only bootstrap node exposes this endpoint)
+if (node instanceof BootstrapNode) {
+	app.post('/node', (req: Request<any, any, { nodeInfo: INode }>, res: Response) => {
+		node.insertNodeToRing(req.body.nodeInfo);
+		res.status(200).json({ nodeId: node.nodeInfo.length - 1 });
+	});
+}
+
+// Update info of all nodes
+app.post('/ring', (req: Request<any, any, { nodes: INode[] }>, res: Response) => {
+	node.setNodeInfo(req.body.nodes);
+	res.status(200).send('OK');
+});
 
 // Initialize chain and node information
 app.post(
