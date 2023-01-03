@@ -31,8 +31,8 @@ export default class Transaction implements ITransaction {
 		receiverAddress: string;
 		amount: number;
 		signature?: Buffer;
-		transactionInputs: ITransactionInput[];
-		transactionOutputs: ITransactionOutput[];
+		transactionInputs?: ITransactionInput[];
+		transactionOutputs?: ITransactionOutput[];
 	}) {
 		this.transactionId =
 			transactionId ??
@@ -48,8 +48,8 @@ export default class Transaction implements ITransaction {
 		this.amount = amount;
 		this.signature = signature;
 		this.timestamp = timestamp ?? new Date();
-		this.transactionInputs = transactionInputs;
-		this.transactionOutputs = transactionOutputs;
+		this.transactionInputs = transactionInputs ?? [];
+		this.transactionOutputs = transactionOutputs ?? [];
 
 		logger.info(`Transaction with ID ${this.transactionId} created`);
 	}

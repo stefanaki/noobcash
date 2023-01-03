@@ -8,6 +8,7 @@ import TransactionOutput from '../entities/transaction-output.entity';
 
 export default class TransactionService {
 	private static instance: TransactionService;
+	private utxos: Map<string, IUnspentTransactionOutput> = new Map();
 
 	private constructor() {}
 
@@ -47,43 +48,78 @@ export default class TransactionService {
 		});
 	}
 
-	validateTransaction(t: Transaction) {}
+	validateTransaction(t: Transaction) {
+		// Check if the signature of the transaction is valid
+		if (!this.verifySignature(t)) {
+			throw new Error(`Transaction ${t.transactionId} failed, invalid signature`);
+		}
 
-	findTransactionInputs(
-		t: Transaction,
-		senderUtxos: IUnspentTransactionOutput
-	): {
-		newTransactionInputs: TransactionInput[];
-		toBeSpentUtxos: TransactionOutput[];
-		totalUtxoAmount: number;
-	} | null {
+		// Check if sender has any UTXO's at all
+		const senderUtxos = this.utxos.get(t.senderAddress);
+		if (!senderUtxos) {
+			throw new Error(`Transaction ${t.transactionId} failed, no UTXO's found`);
+		}
+
+		// Find sender UTXO's that can fulfull the transaction and set the as TransactionInputs
+		const { newTransactionInputs, toBeSpentUtxos, totalUtxoAmount } = this.findTransactionInputs(
+			t,
+			senderUtxos
+		);
+		this.setTransactionInputs(t, newTransactionInputs);
+
+		// Calculate the transaction outputs
+		const newTransactionOutputs = this.createTransactionOutputs(t, totalUtxoAmount);
+		this.setTransactionOutputs(t, newTransactionOutputs);
+
+		// Filter out the sender's UTXO's that are needed for the transaction
+		const updatedSenderUtxos = senderUtxos.utxos.filter((utxo) => !toBeSpentUtxos.includes(utxo));
+
+		// Fetch new receiver's UTXO and append it to receiver's total UTXO's
+		const newReceiverUtxo = newTransactionOutputs[0];
+		const receiverUtxos = this.utxos.get(t.receiverAddress);
+		if (!receiverUtxos) {
+			this.utxos.set(t.receiverAddress, {
+				owner: t.receiverAddress,
+				utxos: [newReceiverUtxo]
+			});
+		} else {
+			receiverUtxos.utxos.push(newReceiverUtxo);
+		}
+
+		if (newTransactionOutputs.length < 2) return;
+
+		// If newTransactionOutputs length is 2, there is also another
+		// UTXO for the change of the sender
+		const newSenderUtxo = newTransactionOutputs[1];
+		updatedSenderUtxos.push(newSenderUtxo);
+		senderUtxos.utxos = updatedSenderUtxos;
+	}
+
+	findTransactionInputs(t: Transaction, senderUtxos: IUnspentTransactionOutput) {
 		let totalUtxoAmount = 0;
 		let toBeSpentUtxos: TransactionOutput[] = [];
-
-		for (let utxo of senderUtxos.utxos) {
-			if (totalUtxoAmount >= t.amount) break;
-
-			totalUtxoAmount += utxo.amount;
-			toBeSpentUtxos.push(utxo);
+		let newTransactionInputs: TransactionInput[] = [];
+	  
+		for (const utxo of senderUtxos.utxos) {
+		  if (totalUtxoAmount >= t.amount) break;
+	  
+		  totalUtxoAmount += utxo.amount;
+		  toBeSpentUtxos.push(utxo);
+		  newTransactionInputs.push(new TransactionInput(utxo.outputId, utxo.amount));
 		}
-
+	  
 		if (totalUtxoAmount < t.amount) {
-			logger.error(`Transaction ${t.transactionId} failed, not enough coins`);
-			return null;
+		  throw new Error(`Transaction ${t.transactionId} failed, not enough coins`);
 		}
-
+	  
 		logger.info(`Found enough UTXO's to fulfill transaction ${t.transactionId}`);
-
-		let newTransactionInputs = toBeSpentUtxos.map(
-			(utxo): TransactionInput => new TransactionInput(utxo.outputId, utxo.amount)
-		);
-
+	  
 		return {
-			newTransactionInputs,
-			toBeSpentUtxos,
-			totalUtxoAmount
+		  newTransactionInputs,
+		  toBeSpentUtxos,
+		  totalUtxoAmount
 		};
-	}
+	  }
 
 	createTransactionOutputs(t: Transaction, totalUtxoAmount: number): TransactionOutput[] {
 		let newTransactionOutputs: TransactionOutput[] = [
@@ -106,5 +142,17 @@ export default class TransactionService {
 			receiverAddress: t.receiverAddress,
 			amount: t.amount
 		};
+	}
+
+	setTransactionInputs(t: Transaction, transactionInputs: TransactionInput[]) {
+		t.transactionInputs = transactionInputs;
+	}
+
+	setTransactionOutputs(t: Transaction, transactionOutputs: TransactionOutput[]) {
+		t.transactionOutputs = transactionOutputs;
+	}
+
+	getUtxos(address: string) {
+		return this.utxos.get(address);
 	}
 }

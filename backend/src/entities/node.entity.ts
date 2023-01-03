@@ -6,6 +6,8 @@ import fetch from 'node-fetch';
 import TransactionService from '../services/transaction.service';
 import MinerService from '../services/miner.service';
 import BlockchainService from '../services/blockchain.service';
+import IBlock from '../interfaces/block.interface';
+import Transaction from './transaction.entity';
 
 type HttpRequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type HttpRequestEndpoint =
@@ -21,23 +23,7 @@ export default class Node implements INode {
 	url: string;
 	port: string;
 	publicKey: string;
-	nodeInfo: INode[] = [
-		{
-			url: 'http://192.168.0.18',
-			port: '3008',
-			publicKey: "abc"
-		},
-		{
-			url: 'http://192.168.0.19',
-			port: '3009',
-			publicKey: "abc"
-		},
-		{
-			url: 'http://192.168.0.110',
-			port: '30010',
-			publicKey: "abc"
-		}
-	];
+	ring: INode[];
 	transactionService: TransactionService;
 	minerService: MinerService;
 	blockchainService: BlockchainService;
@@ -51,21 +37,47 @@ export default class Node implements INode {
 		this.minerService = MinerService.getInstance();
 		this.blockchainService = BlockchainService.getInstance();
 		logger.info('Noobcash node initialized');
+
+		// Messy way to connect node to ring; wait NODE_INDEX number of
+		// seconds and execute POST /node request
+		// Only for testing!
+		if (!config.isBootstrap) {
+			setTimeout(
+				async () =>
+					await fetch(`${config.bootstrapUrl}:${config.bootstrapPort}/node`, {
+						method: 'POST',
+						body: JSON.stringify({
+							node: {
+								url: this.url,
+								port: this.port,
+								publicKey: this.wallet.publicKey
+							}
+						}),
+						headers: {
+							'Content-Type': 'application/json'
+						}
+					}),
+				config.node * 1000
+			);
+		}
 	}
 
-	setNodeInfo(nodes: INode[]) {
-		this.nodeInfo = nodes;
+	setRing(ring: INode[]) {
+		this.ring = ring;
 	}
 
-	public async broadcast(method: HttpRequestMethod, endpoint: HttpRequestEndpoint, body?: any) {
+	protected async broadcast(method: HttpRequestMethod, endpoint: HttpRequestEndpoint, body?: any) {
 		logger.info(`Broadcast ${method} /${endpoint}`);
 		try {
 			await Promise.all(
-				this.nodeInfo.map((node) => {
+				this.ring.map((node) => {
 					if (node.url === this.url) return;
 					return fetch(`${node.url}:${node.port}/${endpoint}`, {
 						method,
-						body
+						body: JSON.stringify(body),
+						headers: {
+							'Content-Type': 'application/json'
+						}
 					});
 				})
 			);
@@ -74,5 +86,33 @@ export default class Node implements INode {
 		}
 	}
 
-	public getWalletBalance() {}
+	initializeBlockchain(genesisBlock: IBlock) {
+		this.blockchainService.setGenesisBlock(genesisBlock);
+	}
+
+	getWalletBalance(): number {
+		const utxos = this.transactionService.getUtxos(this.publicKey);
+		if (!utxos) return 0;
+
+		return utxos.utxos.reduce((total, utxo) => total + utxo.amount, 0);
+	}
+
+	createTransaction(receiverAddress: string, amount: number) {
+		if (!this.ring.find((node) => node.publicKey === receiverAddress))
+			throw new Error('Recipient with given address not found');
+
+		const newTransaction = new Transaction({
+			amount,
+			senderAddress: this.publicKey,
+			receiverAddress: receiverAddress
+		});
+
+		this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
+		this.broadcast('POST', 'transaction', { transaction: newTransaction });
+	}
+
+	insertTransaction(t: Transaction) {
+		this.transactionService.validateTransaction(t);
+		// TODO: If block capacity is maxed out, start mining block
+	}
 }

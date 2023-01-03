@@ -9,8 +9,8 @@ export default abstract class NoobcashNode {
     public abstract signTransaction(transaction: ITransaction): void; // OK
     public abstract broadcastTransaction(transaction: ITransaction): void; // OK
     public abstract verifySignature(transaction: ITransaction): void; // OK
-    public abstract validateTransaction(transaction: ITransaction): void;
-    public abstract getWalletBalance(wallet: IWallet): void;
+    public abstract validateTransaction(transaction: ITransaction): void; // OK
+    public abstract getWalletBalance(wallet: IWallet): void; // OK
     public abstract mineBlock(block: IBlock): void;
     public abstract broadcastBlock(block: IBlock): void;
     public abstract validateBlock(block: IBlock): void; // OK

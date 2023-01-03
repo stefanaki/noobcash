@@ -2,6 +2,7 @@ import IBlockchain from '../interfaces/blockchain.interface';
 import logger from '../utilities/logger';
 import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
+import Transaction from '../entities/transaction.entity';
 
 export default class BlockchainService {
 	private static instance: BlockchainService;
@@ -77,4 +78,10 @@ export default class BlockchainService {
 			previousHash: b.previousHash
 		};
 	}
+
+	setGenesisBlock(genesisBlock: IBlock) {
+		this.chain.blocks = [genesisBlock];
+	}
+
+	insertTransaction(t: Transaction) {}
 }
