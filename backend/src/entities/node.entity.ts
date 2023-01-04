@@ -20,6 +20,7 @@ type HttpRequestEndpoint =
 
 export default class Node implements INode {
 	wallet: Wallet;
+	index: number;
 	url: string;
 	port: string;
 	publicKey: string;
@@ -29,6 +30,7 @@ export default class Node implements INode {
 	blockchainService: BlockchainService;
 
 	constructor() {
+		this.index = config.node;
 		this.url = config.url;
 		this.port = config.port;
 		this.wallet = new Wallet();
@@ -48,6 +50,7 @@ export default class Node implements INode {
 						method: 'POST',
 						body: JSON.stringify({
 							node: {
+								index: this.index,
 								url: this.url,
 								port: this.port,
 								publicKey: this.wallet.publicKey
@@ -57,7 +60,7 @@ export default class Node implements INode {
 							'Content-Type': 'application/json'
 						}
 					}),
-				config.node * 1000
+				config.node * 500
 			);
 		}
 	}
@@ -69,20 +72,23 @@ export default class Node implements INode {
 	protected async broadcast(method: HttpRequestMethod, endpoint: HttpRequestEndpoint, body?: any) {
 		logger.info(`Broadcast ${method} /${endpoint}`);
 		try {
-			await Promise.all(
-				this.ring.map((node) => {
-					if (node.url === this.url) return;
-					return fetch(`${node.url}:${node.port}/${endpoint}`, {
-						method,
-						body: JSON.stringify(body),
-						headers: {
-							'Content-Type': 'application/json'
-						}
-					});
-				})
+			const responses = await Promise.all(
+				this.ring
+					.filter((node) => node.index !== this.index)
+					.map((node) =>
+						fetch(`${node.url}:${node.port}/${endpoint}`, {
+							method,
+							body: JSON.stringify(body),
+							headers: {
+								'Content-Type': 'application/json'
+							}
+						})
+					)
 			);
+
+			return responses;
 		} catch (error) {
-			logger.error(error);
+			throw error;
 		}
 	}
 
@@ -97,18 +103,23 @@ export default class Node implements INode {
 		return utxos.reduce((total, utxo) => total + utxo.amount, 0);
 	}
 
-	createTransaction(receiverAddress: string, amount: number) {
-		if (!this.ring.find((node) => node.publicKey === receiverAddress))
-			throw new Error('Recipient with given address not found');
+	async createTransaction(recipientId: number, amount: number) {
+		if (recipientId > this.ring.length - 1)
+			throw new Error('Recipient with given ID not found');
 
 		const newTransaction = new Transaction({
 			amount,
 			senderAddress: this.publicKey,
-			receiverAddress: receiverAddress
+			receiverAddress: this.ring[recipientId].publicKey
 		});
 
 		this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
-		this.broadcast('POST', 'transaction', { transaction: newTransaction });
+		const responses = await this.broadcast('PUT', 'transaction', { transaction: newTransaction });
+
+		let errorResponse = responses.find((res) => res.status === 400);
+		if (errorResponse) {
+			throw new Error((await errorResponse.json()).message);
+		}
 	}
 
 	insertTransaction(t: Transaction) {

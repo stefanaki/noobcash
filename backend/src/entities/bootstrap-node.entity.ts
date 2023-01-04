@@ -10,8 +10,11 @@ import TransactionOutput from './transaction-output.entity';
 export default class BootstrapNode extends Node {
 	constructor() {
 		super();
-		this.setRing([{ url: this.url, port: this.port, publicKey: this.wallet.publicKey }]);
-		this.createGenesisBlock().then(() => logger.info('Genesis block created'));
+		this.setRing([
+			{ index: this.index, url: this.url, port: this.port, publicKey: this.wallet.publicKey }
+		]);
+		this.createGenesisBlock();
+		logger.info('Genesis block created')
 	}
 
 	async insertNodeToRing(node: INode) {
@@ -21,11 +24,12 @@ export default class BootstrapNode extends Node {
 		}
 
 		this.ring.push(node);
+		this.ring.sort((u, v) => u.index - v.index);
 		logger.info(`Node with URL ${node.url}:${node.port} added`);
 		await this.broadcast('POST', 'ring', { ring: this.ring });
 	}
 
-	async createGenesisBlock() {
+	createGenesisBlock() {
 		const genesisTransaction = new Transaction({
 			amount: config.numOfNodes * 100,
 			receiverAddress: this.publicKey,

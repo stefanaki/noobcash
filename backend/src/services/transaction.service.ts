@@ -60,7 +60,7 @@ export default class TransactionService {
 			throw new Error(`Transaction ${t.transactionId} failed, no UTXO's found`);
 		}
 
-		// Find sender UTXO's that can fulfull the transaction and set the as TransactionInputs
+		// Find sender UTXO's that can fulfill the transaction and set them as TransactionInputs
 		const { newTransactionInputs, toBeSpentUtxos, totalUtxoAmount } = this.findTransactionInputs(
 			t,
 			senderUtxos

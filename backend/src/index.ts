@@ -33,7 +33,7 @@ if (node instanceof BootstrapNode) {
 app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => {
 	try {
 		node.setRing(req.body.ring);
-		logger.info(`Node ${node.ring[node.ring.length - 1].url} connected to ring!`);
+		logger.info(`Node ${node.ring[node.ring.length - 1].index} connected to ring!`);
 		res.status(200).send('OK');
 	} catch (e) {
 		const error = e as Error;
@@ -43,12 +43,9 @@ app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => 
 });
 
 // Initialize blockchain with genesis block
-app.post(
-	'/blockchain',
-	(req: Request<any, any, { genesisBlock: IBlock }>, res: Response) => {
-		node.initializeBlockchain(req.body.genesisBlock);
-	}
-);
+app.post('/blockchain', (req: Request<any, any, { genesisBlock: IBlock }>, res: Response) => {
+	node.initializeBlockchain(req.body.genesisBlock);
+});
 
 // Get all transactions
 app.get('/transaction', (_, res: Response) => {});
@@ -56,9 +53,9 @@ app.get('/transaction', (_, res: Response) => {});
 // Create new transaction
 app.post(
 	'/transaction',
-	(req: Request<any, any, { transaction: ITransaction }>, res: Response) => {
+	async (req: Request<any, any, { recipientId: number; amount: number }>, res: Response) => {
 		try {
-			node.insertTransaction(req.body.transaction);
+			await node.createTransaction(req.body.recipientId, req.body.amount);
 			res.status(200).json({ message: 'OK' });
 		} catch (e) {
 			const error = e as Error;
@@ -68,15 +65,21 @@ app.post(
 	}
 );
 
+// Broadcast new transaction for validation
+app.put('/transaction', (req: Request<any, any, { transaction: ITransaction }>, res: Response) => {
+	try {
+		node.insertTransaction(req.body.transaction);
+		res.status(200).json({ message: 'OK' });
+	} catch (e) {
+		const error = e as Error;
+		logger.warn(error.message);
+		res.status(400).json({ message: error.message });
+	}
+});
+
 // Get wallet balance
 app.get('/balance', (_, res: Response) => {
 	res.status(200).json({ balance: node.getWalletBalance() });
 });
 
-// if (config.node === 8) setTimeout(() => node.broadcast('GET', 'healthcheck'), 5000);
-
 app.listen(config.port, () => logger.info(`Started listening on ${config.url}:${config.port}`));
-
-if (config.node === 2) {
-	setTimeout(() => node.createTransaction(node.ring[0].publicKey, 0), 5000);
-}
