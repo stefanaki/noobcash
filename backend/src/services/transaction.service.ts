@@ -2,13 +2,13 @@ import { sign, verify } from 'crypto';
 import logger from '../utilities/logger';
 import config from '../config';
 import Transaction from '../entities/transaction.entity';
-import { IUnspentTransactionOutput } from '../interfaces/transaction.interface';
 import TransactionInput from '../entities/transaction-input.entity';
 import TransactionOutput from '../entities/transaction-output.entity';
+import { ITransactionOutput } from 'src/interfaces/transaction.interface';
 
 export default class TransactionService {
 	private static instance: TransactionService;
-	private utxos: Map<string, IUnspentTransactionOutput> = new Map();
+	private utxos: Map<string, ITransactionOutput[]> = new Map();
 
 	private constructor() {}
 
@@ -55,7 +55,7 @@ export default class TransactionService {
 		}
 
 		// Check if sender has any UTXO's at all
-		const senderUtxos = this.utxos.get(t.senderAddress);
+		let senderUtxos = this.utxos.get(t.senderAddress);
 		if (!senderUtxos) {
 			throw new Error(`Transaction ${t.transactionId} failed, no UTXO's found`);
 		}
@@ -72,18 +72,15 @@ export default class TransactionService {
 		this.setTransactionOutputs(t, newTransactionOutputs);
 
 		// Filter out the sender's UTXO's that are needed for the transaction
-		const updatedSenderUtxos = senderUtxos.utxos.filter((utxo) => !toBeSpentUtxos.includes(utxo));
+		const updatedSenderUtxos = senderUtxos.filter((utxo) => !toBeSpentUtxos.includes(utxo));
 
 		// Fetch new receiver's UTXO and append it to receiver's total UTXO's
 		const newReceiverUtxo = newTransactionOutputs[0];
 		const receiverUtxos = this.utxos.get(t.receiverAddress);
 		if (!receiverUtxos) {
-			this.utxos.set(t.receiverAddress, {
-				owner: t.receiverAddress,
-				utxos: [newReceiverUtxo]
-			});
+			this.utxos.set(t.receiverAddress, [newReceiverUtxo]);
 		} else {
-			receiverUtxos.utxos.push(newReceiverUtxo);
+			receiverUtxos.push(newReceiverUtxo);
 		}
 
 		if (newTransactionOutputs.length < 2) return;
@@ -92,15 +89,15 @@ export default class TransactionService {
 		// UTXO for the change of the sender
 		const newSenderUtxo = newTransactionOutputs[1];
 		updatedSenderUtxos.push(newSenderUtxo);
-		senderUtxos.utxos = updatedSenderUtxos;
+		senderUtxos = updatedSenderUtxos;
 	}
 
-	findTransactionInputs(t: Transaction, senderUtxos: IUnspentTransactionOutput) {
+	findTransactionInputs(t: Transaction, senderUtxos: ITransactionOutput[]) {
 		let totalUtxoAmount = 0;
 		let toBeSpentUtxos: TransactionOutput[] = [];
 		let newTransactionInputs: TransactionInput[] = [];
 	  
-		for (const utxo of senderUtxos.utxos) {
+		for (const utxo of senderUtxos) {
 		  if (totalUtxoAmount >= t.amount) break;
 	  
 		  totalUtxoAmount += utxo.amount;

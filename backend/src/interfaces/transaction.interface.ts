@@ -20,8 +20,3 @@ export interface ITransactionOutput {
     receiverAddress: string;
     amount: number;
 }
-
-export interface IUnspentTransactionOutput {
-    owner: string;
-    utxos: ITransactionOutput[];
-}

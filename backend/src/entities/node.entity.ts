@@ -94,7 +94,7 @@ export default class Node implements INode {
 		const utxos = this.transactionService.getUtxos(this.publicKey);
 		if (!utxos) return 0;
 
-		return utxos.utxos.reduce((total, utxo) => total + utxo.amount, 0);
+		return utxos.reduce((total, utxo) => total + utxo.amount, 0);
 	}
 
 	createTransaction(receiverAddress: string, amount: number) {

@@ -29,43 +29,37 @@ export default class BlockchainService {
 		return block;
 	}
 
-	validateBlock(index: number): boolean {
-		if (index === 0) return true;
+	validateBlock(index: number) {
+		if (index === 0) return;
 
-		try {
-			const currentBlock = this.getBlock(index);
+		const currentBlock = this.getBlock(index);
 
-			// Current block hash matches verifiable data
-			if (hash(this.getValidatableBlockData(currentBlock)) !== currentBlock.currentHash)
-				return false;
+		// Current block hash matches verifiable data
+		if (hash(this.getValidatableBlockData(currentBlock)) !== currentBlock.currentHash)
+			throw new Error(`Invalid block ${currentBlock.index}, bad hash`);
 
-			// Previous block is genesis block
-			if (index - 1 === 0) return true;
-			const previousBlock = this.getBlock(index - 1);
+		// Previous block is genesis block
+		if (index - 1 === 0) return;
+		const previousBlock = this.getBlock(index - 1);
 
-			// Previous hash of current block matches hash of previous block
-			if (hash(this.getValidatableBlockData(previousBlock)) !== currentBlock.previousHash)
-				return false;
-		} catch (error) {
-			logger.error(error);
-			return false;
-		}
-		return true;
+		// Previous hash of current block matches hash of previous block
+		if (hash(this.getValidatableBlockData(previousBlock)) !== currentBlock.previousHash)
+			throw new Error(`Invalid block ${currentBlock.index}, bad previous hash`);
+
+		logger.info(`Block ${currentBlock.index} validated`);
 	}
 
-	validateChain(): boolean {
+	validateChain() {
 		try {
 			for (let block of this.chain.blocks) {
 				if (block.index === 0) continue;
 
-				if (!this.validateBlock(block.index)) return false;
+				this.validateBlock(block.index);
 			}
 
 			logger.info('Blockchain validated');
-			return true;
 		} catch (error) {
-			logger.error('Blockchain could not be validated');
-			throw new Error('Invalid blockchain');
+			throw error;
 		}
 	}
 
