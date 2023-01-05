@@ -3,9 +3,9 @@ import Node from './entities/node.entity';
 import logger from './utilities/logger';
 import express, { Request, Response } from 'express';
 import BootstrapNode from './entities/bootstrap-node.entity';
-import IBlock from './interfaces/block.interface';
 import INode from './interfaces/node.interface';
-import ITransaction from './interfaces/transaction.interface';
+import ITransaction, { ITransactionOutput } from './interfaces/transaction.interface';
+import IBlockchain from './interfaces/blockchain.interface';
 
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
@@ -24,7 +24,6 @@ app.get('/healthcheck', (_, res: Response) => {
 if (node instanceof BootstrapNode) {
 	app.post('/node', async (req: Request<any, any, { node: INode }>, res: Response) => {
 		await node.insertNodeToRing(req.body.node);
-		logger.warn(node.ring);
 		res.status(200).json({ nodeId: node.ring.length - 1 });
 	});
 }
@@ -43,9 +42,20 @@ app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => 
 });
 
 // Initialize blockchain with genesis block
-app.post('/blockchain', (req: Request<any, any, { genesisBlock: IBlock }>, res: Response) => {
-	node.initializeBlockchain(req.body.genesisBlock);
-});
+app.post(
+	'/blockchain',
+	(
+		req: Request<
+			any,
+			any,
+			{ blockchain: IBlockchain; utxos: { [key: string]: ITransactionOutput[] } }
+		>,
+		res: Response
+	) => {
+		node.initializeBlockchain(req.body.blockchain, req.body.utxos);
+		res.status(200).send('OK');
+	}
+);
 
 // Get all transactions
 app.get('/transaction', (_, res: Response) => {});
@@ -72,7 +82,6 @@ app.put('/transaction', (req: Request<any, any, { transaction: ITransaction }>, 
 		res.status(200).json({ message: 'OK' });
 	} catch (e) {
 		const error = e as Error;
-		logger.warn(error.message);
 		res.status(400).json({ message: error.message });
 	}
 });

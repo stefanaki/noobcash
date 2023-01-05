@@ -6,6 +6,7 @@ import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
 import Transaction from './transaction.entity';
 import TransactionOutput from './transaction-output.entity';
+import httpRequest from '../utilities/http';
 
 export default class BootstrapNode extends Node {
 	constructor() {
@@ -14,7 +15,7 @@ export default class BootstrapNode extends Node {
 			{ index: this.index, url: this.url, port: this.port, publicKey: this.wallet.publicKey }
 		]);
 		this.createGenesisBlock();
-		logger.info('Genesis block created')
+		logger.info('Genesis block created');
 	}
 
 	async insertNodeToRing(node: INode) {
@@ -26,7 +27,21 @@ export default class BootstrapNode extends Node {
 		this.ring.push(node);
 		this.ring.sort((u, v) => u.index - v.index);
 		logger.info(`Node with URL ${node.url}:${node.port} added`);
+
 		await this.broadcast('POST', 'ring', { ring: this.ring });
+
+		await httpRequest({
+			url: node.url,
+			port: node.port,
+			endpoint: 'blockchain',
+			method: 'POST',
+			body: {
+				blockchain: this.blockchainService.getChain(),
+				utxos: Object.fromEntries(this.transactionService.getAllUtxos())
+			}
+		});
+
+		await this.createTransaction(node.index, 100);
 	}
 
 	createGenesisBlock() {
@@ -59,5 +74,6 @@ export default class BootstrapNode extends Node {
 		};
 
 		this.blockchainService.setGenesisBlock(genesisBlock);
+		this.transactionService.setInitialUtxo(this.publicKey, genesisUtxo);
 	}
 }

@@ -1,3 +1,5 @@
+import IBlock from "../interfaces/block.interface";
+
 export default class MinerService {
     private static instance: MinerService;
 
@@ -9,5 +11,9 @@ export default class MinerService {
         }
 
         return this.instance;
+    }
+
+    mineBlock(block: IBlock) {
+
     }
 }

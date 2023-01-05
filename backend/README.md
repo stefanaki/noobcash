@@ -32,7 +32,7 @@ You can simulate the system on a single machine by running multiple Docker conta
     sudo docker run -it \
     --net nb-net \
     --ip ${IP} \
-    -p 300${NODE_INDEX}:300${NODE_INDEX} \
+    -p ${PORT}:${PORT} \
     -e NODE_INDEX=${NODE_INDEX} \
     -e NUM_NODES=${NUM_NODES} \
     -e IS_BOOTSTRAP=${IS_BOOTSTRAP} \

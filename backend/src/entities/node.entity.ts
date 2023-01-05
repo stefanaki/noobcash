@@ -2,21 +2,13 @@ import config from '../config';
 import INode from '../interfaces/node.interface';
 import Wallet from './wallet.entity';
 import logger from '../utilities/logger';
-import fetch from 'node-fetch';
 import TransactionService from '../services/transaction.service';
 import MinerService from '../services/miner.service';
 import BlockchainService from '../services/blockchain.service';
-import IBlock from '../interfaces/block.interface';
 import Transaction from './transaction.entity';
-
-type HttpRequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-type HttpRequestEndpoint =
-	| 'healthcheck'
-	| 'ring'
-	| 'node'
-	| 'blockchain'
-	| 'transaction'
-	| 'balance';
+import IBlockchain from '../interfaces/blockchain.interface';
+import { ITransactionOutput } from '../interfaces/transaction.interface';
+import httpRequest, { HttpRequestEndpoint, HttpRequestMethod } from '../utilities/http';
 
 export default class Node implements INode {
 	wallet: Wallet;
@@ -46,18 +38,18 @@ export default class Node implements INode {
 		if (!config.isBootstrap) {
 			setTimeout(
 				async () =>
-					await fetch(`${config.bootstrapUrl}:${config.bootstrapPort}/node`, {
+					await httpRequest({
+						url: config.bootstrapUrl,
+						port: config.bootstrapPort,
+						endpoint: 'node',
 						method: 'POST',
-						body: JSON.stringify({
+						body: {
 							node: {
 								index: this.index,
 								url: this.url,
 								port: this.port,
 								publicKey: this.wallet.publicKey
 							}
-						}),
-						headers: {
-							'Content-Type': 'application/json'
 						}
 					}),
 				config.node * 500
@@ -71,29 +63,21 @@ export default class Node implements INode {
 
 	protected async broadcast(method: HttpRequestMethod, endpoint: HttpRequestEndpoint, body?: any) {
 		logger.info(`Broadcast ${method} /${endpoint}`);
-		try {
-			const responses = await Promise.all(
-				this.ring
-					.filter((node) => node.index !== this.index)
-					.map((node) =>
-						fetch(`${node.url}:${node.port}/${endpoint}`, {
-							method,
-							body: JSON.stringify(body),
-							headers: {
-								'Content-Type': 'application/json'
-							}
-						})
-					)
-			);
 
-			return responses;
-		} catch (error) {
-			throw error;
-		}
+		const responses = await Promise.all(
+			this.ring
+				.filter((node) => node.index !== this.index)
+				.map((node) => httpRequest({ method, endpoint, url: node.url, port: node.port, body }))
+		);
+
+		return responses;
 	}
 
-	initializeBlockchain(genesisBlock: IBlock) {
-		this.blockchainService.setGenesisBlock(genesisBlock);
+	initializeBlockchain(blockchain: IBlockchain, utxos: { [key: string]: ITransactionOutput[] }) {
+		this.blockchainService.setBlockchain(blockchain);
+
+		const incomingUtxos = new Map<string, ITransactionOutput[]>(Object.entries(utxos));
+		this.transactionService.setUtxos(incomingUtxos);
 	}
 
 	getWalletBalance(): number {
@@ -104,8 +88,7 @@ export default class Node implements INode {
 	}
 
 	async createTransaction(recipientId: number, amount: number) {
-		if (recipientId > this.ring.length - 1)
-			throw new Error('Recipient with given ID not found');
+		if (recipientId > this.ring.length - 1) throw new Error('Recipient with given ID not found');
 
 		const newTransaction = new Transaction({
 			amount,
@@ -114,6 +97,7 @@ export default class Node implements INode {
 		});
 
 		this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
+		this.transactionService.validateTransaction(newTransaction);
 		const responses = await this.broadcast('PUT', 'transaction', { transaction: newTransaction });
 
 		let errorResponse = responses.find((res) => res.status === 400);
@@ -124,6 +108,12 @@ export default class Node implements INode {
 
 	insertTransaction(t: Transaction) {
 		this.transactionService.validateTransaction(t);
+		this.blockchainService.appendTransaction(t);
+
 		// TODO: If block capacity is maxed out, start mining block
+		const latestBlock = this.blockchainService.getLatestBlock();
+		if (latestBlock.transactions.length === config.blockCapacity) {
+			setTimeout(() => this.minerService.mineBlock(latestBlock));
+		}
 	}
 }

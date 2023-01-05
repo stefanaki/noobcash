@@ -83,40 +83,42 @@ export default class TransactionService {
 			receiverUtxos.push(newReceiverUtxo);
 		}
 
-		if (newTransactionOutputs.length < 2) return;
+		if (newTransactionOutputs.length < 2) {
+			this.utxos.set(t.senderAddress, updatedSenderUtxos);
+			return;
+		}
 
 		// If newTransactionOutputs length is 2, there is also another
 		// UTXO for the change of the sender
-		const newSenderUtxo = newTransactionOutputs[1];
-		updatedSenderUtxos.push(newSenderUtxo);
-		senderUtxos = updatedSenderUtxos;
+		updatedSenderUtxos.push(newTransactionOutputs[1]);
+		this.utxos.set(t.senderAddress, updatedSenderUtxos);
+
+		logger.info(`Transaction ${t.transactionId} validated`);
 	}
 
 	findTransactionInputs(t: Transaction, senderUtxos: ITransactionOutput[]) {
 		let totalUtxoAmount = 0;
 		let toBeSpentUtxos: TransactionOutput[] = [];
 		let newTransactionInputs: TransactionInput[] = [];
-	  
+
 		for (const utxo of senderUtxos) {
-		  if (totalUtxoAmount >= t.amount) break;
-	  
-		  totalUtxoAmount += utxo.amount;
-		  toBeSpentUtxos.push(utxo);
-		  newTransactionInputs.push(new TransactionInput(utxo.outputId, utxo.amount));
+			if (totalUtxoAmount >= t.amount) break;
+
+			totalUtxoAmount += utxo.amount;
+			toBeSpentUtxos.push(utxo);
+			newTransactionInputs.push(new TransactionInput(utxo.outputId, utxo.amount));
 		}
-	  
+
 		if (totalUtxoAmount < t.amount) {
-		  throw new Error(`Transaction ${t.transactionId} failed, not enough coins`);
+			throw new Error(`Transaction ${t.transactionId} failed, not enough coins`);
 		}
-	  
-		logger.info(`Found enough UTXO's to fulfill transaction ${t.transactionId}`);
-	  
+
 		return {
-		  newTransactionInputs,
-		  toBeSpentUtxos,
-		  totalUtxoAmount
+			newTransactionInputs,
+			toBeSpentUtxos,
+			totalUtxoAmount
 		};
-	  }
+	}
 
 	createTransactionOutputs(t: Transaction, totalUtxoAmount: number): TransactionOutput[] {
 		let newTransactionOutputs: TransactionOutput[] = [
@@ -151,5 +153,17 @@ export default class TransactionService {
 
 	getUtxos(address: string) {
 		return this.utxos.get(address);
+	}
+
+	setInitialUtxo(address: string, transactionOutput: TransactionOutput) {
+		this.utxos.set(address, [transactionOutput]);
+	}
+
+	setUtxos(utxos: Map<string, ITransactionOutput[]>) {
+		this.utxos = utxos;
+	}
+
+	getAllUtxos() {
+		return this.utxos;
 	}
 }

@@ -2,6 +2,7 @@ import IBlockchain from '../interfaces/blockchain.interface';
 import logger from '../utilities/logger';
 import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
+import Transaction from '../entities/transaction.entity';
 
 export default class BlockchainService {
 	private static instance: BlockchainService;
@@ -48,9 +49,9 @@ export default class BlockchainService {
 		logger.info(`Block ${currentBlock.index} validated`);
 	}
 
-	validateChain() {
+	validateChain(chain: IBlockchain) {
 		try {
-			for (let block of this.chain.blocks) {
+			for (let block of chain.blocks) {
 				if (block.index === 0) continue;
 
 				this.validateBlock(block.index);
@@ -72,7 +73,38 @@ export default class BlockchainService {
 		};
 	}
 
+	setBlockchain(blockchain: IBlockchain) {
+		this.validateChain(blockchain);
+		this.chain = blockchain;
+	}
+
 	setGenesisBlock(genesisBlock: IBlock) {
 		this.chain.blocks = [genesisBlock];
 	}
+
+	getChain() {
+		return this.chain;
+	}
+
+	insertBlock(b: IBlock) {
+		this.chain.blocks.push(b);
+	}
+
+	getLatestBlock() {
+		const lastIndex = this.chain.blocks.length - 1;
+		return this.chain.blocks[lastIndex];
+	}
+
+	getLatestBlock_1() {
+		let lastBlock = this.chain.blocks[0];
+		for (const block of this.chain.blocks) {
+			if (block.index > lastBlock.index) {
+				lastBlock = block;
+			}
+		}
+
+		return lastBlock;
+	}
+
+	appendTransaction(t: Transaction) {}
 }
