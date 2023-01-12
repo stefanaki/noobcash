@@ -6,6 +6,7 @@ import BootstrapNode from './entities/bootstrap-node.entity';
 import INode from './interfaces/node.interface';
 import ITransaction, { ITransactionOutput } from './interfaces/transaction.interface';
 import IBlockchain from './interfaces/blockchain.interface';
+import IBlock from './interfaces/block.interface';
 
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
@@ -41,6 +42,18 @@ app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => 
 	}
 });
 
+// Get Blockchain and UTXO's
+app.get('/blockchain', (_, res: Response) => {
+	try {
+		const { blockchain, utxos } = node.getBlockchain();
+
+		res.status(200).json({ blockchain, utxos });
+	} catch (e) {
+		const error = e as Error;
+		res.status(400).json({ message: error.message });
+	}
+});
+
 // Initialize blockchain with genesis block
 app.post(
 	'/blockchain',
@@ -52,20 +65,38 @@ app.post(
 		>,
 		res: Response
 	) => {
-		node.initializeBlockchain(req.body.blockchain, req.body.utxos);
+		node.initBlockchain(req.body.blockchain, req.body.utxos);
 		res.status(200).send('OK');
 	}
 );
 
-// Get all transactions
-app.get('/transaction', (_, res: Response) => {});
+app.post('/block', async (req: Request<any, any, { block: IBlock }>, res: Response) => {
+	try {
+		await node.postBlock(req.body.block);
+		res.status(200).json({ message: 'OK' });
+	} catch (e) {
+		const error = e as Error;
+		res.status(400).json({ message: error.message });
+	}
+});
+
+// Get latest block's transactions
+app.get('/transaction', (_, res: Response) => {
+	try {
+		const transactions = node.getLatestBlockTransactions();
+		res.status(200).json({ transactions });
+	} catch (e) {
+		const error = e as Error;
+		res.status(400).json({ message: error.message });
+	}
+});
 
 // Create new transaction
 app.post(
 	'/transaction',
 	async (req: Request<any, any, { recipientId: number; amount: number }>, res: Response) => {
 		try {
-			await node.createTransaction(req.body.recipientId, req.body.amount);
+			await node.postTransaction(req.body.recipientId, req.body.amount);
 			res.status(200).json({ message: 'OK' });
 		} catch (e) {
 			const error = e as Error;
@@ -76,9 +107,9 @@ app.post(
 );
 
 // Broadcast new transaction for validation
-app.put('/transaction', (req: Request<any, any, { transaction: ITransaction }>, res: Response) => {
+app.put('/transaction', async (req: Request<any, any, { transaction: ITransaction }>, res: Response) => {
 	try {
-		node.insertTransaction(req.body.transaction);
+		await node.putTransaction(req.body.transaction);
 		res.status(200).json({ message: 'OK' });
 	} catch (e) {
 		const error = e as Error;

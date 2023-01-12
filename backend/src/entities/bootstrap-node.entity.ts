@@ -11,9 +11,9 @@ import httpRequest from '../utilities/http';
 export default class BootstrapNode extends Node {
 	constructor() {
 		super();
-		this.setRing([
+		this.ring = [
 			{ index: this.index, url: this.url, port: this.port, publicKey: this.wallet.publicKey }
-		]);
+		];
 		this.createGenesisBlock();
 		logger.info('Genesis block created');
 	}
@@ -41,7 +41,7 @@ export default class BootstrapNode extends Node {
 			}
 		});
 
-		await this.createTransaction(node.index, 100);
+		await this.postTransaction(node.index, 100);
 	}
 
 	createGenesisBlock() {

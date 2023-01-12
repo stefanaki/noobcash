@@ -29,36 +29,35 @@ export default class BlockchainService {
 		return block;
 	}
 
-	validateBlock(index: number) {
-		if (index === 0) return;
-
-		const currentBlock = this.getBlock(index);
+	validateBlock(block: IBlock) {
+		if (block.index === 0) return;
 
 		// Current block hash matches verifiable data
-		if (hash(this.getValidatableBlockData(currentBlock)) !== currentBlock.currentHash)
-			throw new Error(`Invalid block ${currentBlock.index}, bad hash`);
+		if (hash(this.getValidatableBlockData(block)) !== block.currentHash)
+			throw new Error(`Invalid block ${block.index}, bad hash,,, ${block.currentHash}`);
 
 		// Previous block is genesis block
-		if (index - 1 === 0) return;
-		const previousBlock = this.getBlock(index - 1);
+		if (block.index - 1 === 0) return;
+		const previousBlock = this.getBlock(block.index - 1);
 
 		// Previous hash of current block matches hash of previous block
-		if (hash(this.getValidatableBlockData(previousBlock)) !== currentBlock.previousHash)
-			throw new Error(`Invalid block ${currentBlock.index}, bad previous hash`);
+		if (hash(this.getValidatableBlockData(previousBlock)) !== block.previousHash)
+			throw new Error(`Invalid block ${block.index}, bad previous hash`);
 
-		logger.info(`Block ${currentBlock.index} validated`);
+		logger.info(`Block ${block.index} validated`);
 	}
 
-	validateChain(chain: IBlockchain) {
+	async validateChain(chain: IBlockchain) {
 		try {
 			for (let block of chain.blocks) {
 				if (block.index === 0) continue;
 
-				this.validateBlock(block.index);
+				this.validateBlock(block);
 			}
 
 			logger.info('Blockchain validated');
 		} catch (error) {
+			logger.error('Chain not validated, trying to resolve conflicts');
 			throw error;
 		}
 	}
@@ -66,7 +65,7 @@ export default class BlockchainService {
 	getValidatableBlockData(b: IBlock) {
 		return {
 			index: b.index,
-			timestamp: b.timestamp,
+			// timestamp: b.timestamp,
 			transactions: b.transactions,
 			nonce: b.nonce,
 			previousHash: b.previousHash
@@ -87,7 +86,28 @@ export default class BlockchainService {
 	}
 
 	insertBlock(b: IBlock) {
+		this.validateBlock(b);
+
+		const i = this.chain.blocks.map(b => b.index).indexOf(b.index);
+		this.chain.blocks.splice(i, 1);
 		this.chain.blocks.push(b);
+		
+
+		const newBlock: IBlock = {
+			index: b.index + 1,
+			currentHash: "",
+			nonce: 0,
+			previousHash: b.currentHash,
+			timestamp: new Date(),
+			transactions: []
+		}
+
+		const newBlockCurrentHash = hash(this.getValidatableBlockData(newBlock));
+		newBlock.currentHash = newBlockCurrentHash;
+		console.info(`new block hash ${newBlockCurrentHash}`);
+		this.chain.blocks.push(newBlock);
+
+		setTimeout(() => logger.warn(this.chain.blocks), 5000);
 	}
 
 	getLatestBlock() {
@@ -106,5 +126,9 @@ export default class BlockchainService {
 		return lastBlock;
 	}
 
-	appendTransaction(t: Transaction) {}
+	appendTransaction(t: Transaction) {
+		const latestBlock = this.getLatestBlock();
+		latestBlock.transactions.push(t);
+		latestBlock.currentHash = hash(this.getValidatableBlockData(latestBlock));
+	}
 }

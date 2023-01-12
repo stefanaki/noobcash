@@ -5,6 +5,7 @@ export type HttpRequestEndpoint =
 	| 'healthcheck'
 	| 'ring'
 	| 'node'
+	| 'block'
 	| 'blockchain'
 	| 'transaction'
 	| 'balance';
