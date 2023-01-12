@@ -53,7 +53,7 @@ export default class Node implements INode {
 							}
 						}
 					}),
-				config.node * 500
+				config.node * 1500
 			);
 		}
 	}
@@ -104,7 +104,7 @@ export default class Node implements INode {
 
 		this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
 		this.transactionService.validateTransaction(newTransaction);
-		this.blockchainService.appendTransaction(newTransaction);
+		this.blockchainService.appendTransactionToLatestBlock(newTransaction);
 
 		const responses = await this.broadcast('PUT', 'transaction', { transaction: newTransaction });
 		let errorResponse = responses.find((res) => res.status === 400);
@@ -117,7 +117,7 @@ export default class Node implements INode {
 
 	putTransaction(t: Transaction) {
 		this.transactionService.validateTransaction(t);
-		this.blockchainService.appendTransaction(t);
+		this.blockchainService.appendTransactionToLatestBlock(t);
 
 		// If block capacity is maxed out, start mining block
 		setTimeout(() => this.mineLatestBlock());
@@ -172,6 +172,7 @@ export default class Node implements INode {
 		}
 
 		this.initBlockchain(longestChain, longestChainUtxos);
+		logger.info('Conflicts resolved');
 	}
 
 	async postBlock(block: IBlock) {
@@ -199,9 +200,12 @@ export default class Node implements INode {
 
 				this.blockchainService.insertBlock(latestBlock);
 				logger.info(`Block ${latestBlock.index} inserted`);
+
+				
 			}
 		} catch (error) {
 			logger.warn(error);
+			
 		}
 	}
 }

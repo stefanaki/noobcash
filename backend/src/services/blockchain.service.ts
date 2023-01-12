@@ -21,16 +21,14 @@ export default class BlockchainService {
 		return this.instance;
 	}
 
-	getBlock(index: number): IBlock {
-		const block = this.chain.blocks.find((block) => block.index === index);
-
-		if (!block) throw new Error('Invalid block index');
-
-		return block;
+	getBlock(chain: IBlockchain, index: number): IBlock {
+		return chain.blocks[index];
 	}
 
-	validateBlock(block: IBlock) {
-		if (block.index === 0) return;
+	validateBlock(chain: IBlockchain, index: number) {
+		if (index === 0) return;
+
+		const block = this.getBlock(chain, index);
 
 		// Current block hash matches verifiable data
 		if (hash(this.getValidatableBlockData(block)) !== block.currentHash)
@@ -38,21 +36,21 @@ export default class BlockchainService {
 
 		// Previous block is genesis block
 		if (block.index - 1 === 0) return;
-		const previousBlock = this.getBlock(block.index - 1);
+		const previousBlock = this.getBlock(chain, block.index - 1);
 
 		// Previous hash of current block matches hash of previous block
 		if (hash(this.getValidatableBlockData(previousBlock)) !== block.previousHash)
 			throw new Error(`Invalid block ${block.index}, bad previous hash`);
 
-		logger.info(`Block ${block.index} validated`);
+		// logger.info(`Block ${block.index} validated`);
 	}
 
-	async validateChain(chain: IBlockchain) {
+	async validateChain(chain: IBlockchain = this.chain) {
 		try {
 			for (let block of chain.blocks) {
 				if (block.index === 0) continue;
 
-				this.validateBlock(block);
+				this.validateBlock(chain, block.index);
 			}
 
 			logger.info('Blockchain validated');
@@ -65,7 +63,7 @@ export default class BlockchainService {
 	getValidatableBlockData(b: IBlock) {
 		return {
 			index: b.index,
-			// timestamp: b.timestamp,
+			// timestamp: b.timestamp, // sneaky
 			transactions: b.transactions,
 			nonce: b.nonce,
 			previousHash: b.previousHash
@@ -86,7 +84,7 @@ export default class BlockchainService {
 	}
 
 	insertBlock(b: IBlock) {
-		this.validateBlock(b);
+		this.validateBlock(this.chain, b.index);
 
 		const i = this.chain.blocks.map(b => b.index).indexOf(b.index);
 		this.chain.blocks.splice(i, 1);
@@ -107,7 +105,7 @@ export default class BlockchainService {
 		console.info(`new block hash ${newBlockCurrentHash}`);
 		this.chain.blocks.push(newBlock);
 
-		setTimeout(() => logger.warn(this.chain.blocks), 5000);
+		this.validateChain(this.chain);
 	}
 
 	getLatestBlock() {
@@ -115,18 +113,7 @@ export default class BlockchainService {
 		return this.chain.blocks[lastIndex];
 	}
 
-	getLatestBlock_1() {
-		let lastBlock = this.chain.blocks[0];
-		for (const block of this.chain.blocks) {
-			if (block.index > lastBlock.index) {
-				lastBlock = block;
-			}
-		}
-
-		return lastBlock;
-	}
-
-	appendTransaction(t: Transaction) {
+	appendTransactionToLatestBlock(t: Transaction) {
 		const latestBlock = this.getLatestBlock();
 		latestBlock.transactions.push(t);
 		latestBlock.currentHash = hash(this.getValidatableBlockData(latestBlock));
