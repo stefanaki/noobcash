@@ -10,4 +10,4 @@ COPY . .
 
 VOLUME ["/app/node_modules"]
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]

@@ -9,71 +9,74 @@ import TransactionOutput from './transaction-output.entity';
 import httpRequest from '../utilities/http';
 
 export default class BootstrapNode extends Node {
-	constructor() {
-		super();
-		this.ring = [
-			{ index: this.index, url: this.url, port: this.port, publicKey: this.wallet.publicKey }
-		];
-		this.createGenesisBlock();
-		logger.info('Genesis block created');
-	}
+    constructor() {
+        super();
+        this.ring = [
+            { index: this.index, url: this.url, port: this.port, publicKey: this.publicKey },
+        ];
+        this.createGenesisBlock();
+        logger.info('Genesis block created');
 
-	async insertNodeToRing(node: INode) {
-		if (this.ring.length === config.numOfNodes) {
-			logger.info(`Ring capacity maxed, can't insert new node`);
-			return;
-		}
+        this.initMining();
+    }
 
-		this.ring.push(node);
-		this.ring.sort((u, v) => u.index - v.index);
-		logger.info(`Node with URL ${node.url}:${node.port} added`);
+    async insertNodeToRing(node: INode) {
+        if (this.ring.length === config.numOfNodes) {
+            logger.info(`Ring capacity maxed, can't insert new node`);
+            return;
+        }
 
-		await this.broadcast('POST', 'ring', { ring: this.ring });
+        this.ring.push(node);
+        this.ring.sort((u, v) => u.index - v.index);
+        logger.info(`Node with URL ${node.url}:${node.port} added`);
 
-		await httpRequest({
-			url: node.url,
-			port: node.port,
-			endpoint: 'blockchain',
-			method: 'POST',
-			body: {
-				blockchain: this.blockchainService.getChain(),
-				utxos: Object.fromEntries(this.transactionService.getAllUtxos())
-			}
-		});
+        await this.broadcast('POST', 'ring', { ring: this.ring });
 
-		await this.postTransaction(node.index, 100);
-	}
+        await httpRequest({
+            url: node.url,
+            port: node.port,
+            endpoint: 'blockchain',
+            method: 'POST',
+            body: {
+                blockchain: this.blockchainService.getChain(),
+                utxos: Object.fromEntries(this.transactionService.getAllUtxos()),
+                pendingTransactions: this.transactionService.getPendingTransactions()
+            },
+        });
 
-	createGenesisBlock() {
-		const genesisTransaction = new Transaction({
-			amount: config.numOfNodes * 100,
-			receiverAddress: this.publicKey,
-			senderAddress: 'satone'
-		});
+        await this.postTransaction(node.index, 100);
+    }
 
-		const genesisUtxo = new TransactionOutput(
-			genesisTransaction.transactionId,
-			genesisTransaction.receiverAddress,
-			genesisTransaction.amount
-		);
+    createGenesisBlock() {
+        const genesisTransaction = new Transaction({
+            amount: config.numOfNodes * 100,
+            receiverAddress: this.publicKey,
+            senderAddress: 'satone',
+        });
 
-		this.transactionService.setTransactionOutputs(genesisTransaction, [genesisUtxo]);
-		this.transactionService.signTransaction(genesisTransaction, this.wallet.privateKey);
+        const genesisUtxo = new TransactionOutput(
+            genesisTransaction.transactionId,
+            genesisTransaction.receiverAddress,
+            genesisTransaction.amount,
+        );
 
-		const genesisBlockData = {
-			index: 0,
-			timestamp: new Date(),
-			transactions: [genesisTransaction],
-			nonce: 0,
-			previousHash: '1'
-		};
+        this.transactionService.setTransactionOutputs(genesisTransaction, [genesisUtxo]);
+        this.transactionService.signTransaction(genesisTransaction, this.wallet.privateKey);
 
-		const genesisBlock: IBlock = {
-			...genesisBlockData,
-			currentHash: hash(genesisBlockData)
-		};
+        const genesisBlockData = {
+            index: 0,
+            timestamp: Date.now(),
+            transactions: [genesisTransaction],
+            nonce: 0,
+            previousHash: '1',
+        };
 
-		this.blockchainService.setGenesisBlock(genesisBlock);
-		this.transactionService.setInitialUtxo(this.publicKey, genesisUtxo);
-	}
+        const genesisBlock: IBlock = {
+            ...genesisBlockData,
+            currentHash: hash(genesisBlockData),
+        };
+
+        this.blockchainService.setGenesisBlock(genesisBlock);
+        this.transactionService.setInitialUtxo(this.publicKey, genesisUtxo);
+    }
 }

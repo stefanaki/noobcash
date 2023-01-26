@@ -1,8 +1,8 @@
-import ITransaction from "./transaction.interface";
+import ITransaction from './transaction.interface';
 
 export default interface IBlock {
     index: number;
-    timestamp: Date;
+    timestamp: number;
     transactions: ITransaction[];
     nonce: number;
     currentHash: string;

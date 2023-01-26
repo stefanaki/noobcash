@@ -7,205 +7,272 @@ import MinerService from '../services/miner.service';
 import BlockchainService from '../services/blockchain.service';
 import Transaction from './transaction.entity';
 import IBlockchain from '../interfaces/blockchain.interface';
-import { ITransactionOutput } from '../interfaces/transaction.interface';
+import ITransaction, { ITransactionOutput } from '../interfaces/transaction.interface';
 import httpRequest, { HttpRequestEndpoint, HttpRequestMethod } from '../utilities/http';
 import IBlock from '../interfaces/block.interface';
 
 export default class Node implements INode {
-	wallet: Wallet;
-	index: number;
-	url: string;
-	port: string;
-	publicKey: string;
-	ring: INode[];
-	transactionService: TransactionService;
-	minerService: MinerService;
-	blockchainService: BlockchainService;
+    wallet: Wallet;
+    index: number;
+    url: string;
+    port: string;
+    publicKey: string;
+    ring: INode[];
+    transactionService: typeof TransactionService;
+    minerService: typeof MinerService;
+    blockchainService: typeof BlockchainService;
 
-	constructor() {
-		this.index = config.node;
-		this.url = config.url;
-		this.port = config.port;
-		this.wallet = new Wallet();
-		this.publicKey = this.wallet.publicKey;
-		this.transactionService = TransactionService.getInstance();
-		this.minerService = MinerService.getInstance();
-		this.blockchainService = BlockchainService.getInstance();
-		logger.info('Noobcash node initialized');
+    constructor() {
+        this.index = config.node;
+        this.url = config.url;
+        this.port = config.port;
+        this.wallet = new Wallet();
+        this.publicKey = this.wallet.publicKey;
+        this.transactionService = TransactionService;
+        this.minerService = MinerService;
+        this.blockchainService = BlockchainService;
+        logger.info('Noobcash node initialized');
 
-		// Messy way to connect node to ring; wait NODE_INDEX number of
-		// seconds and execute POST /node request
-		// Only for testing!
-		if (!config.isBootstrap) {
-			setTimeout(
-				async () =>
-					await httpRequest({
-						url: config.bootstrapUrl,
-						port: config.bootstrapPort,
-						endpoint: 'node',
-						method: 'POST',
-						body: {
-							node: {
-								index: this.index,
-								url: this.url,
-								port: this.port,
-								publicKey: this.publicKey
-							}
-						}
-					}),
-				config.node * 1500
-			);
-		}
-	}
+        // Wait NODE_INDEX seconds before contacting bootstrap node
+        if (!config.isBootstrap) {
+            setTimeout(
+                async () =>
+                    await httpRequest({
+                        url: config.bootstrapUrl,
+                        port: config.bootstrapPort,
+                        endpoint: 'node',
+                        method: 'POST',
+                        body: {
+                            node: {
+                                index: this.index,
+                                url: this.url,
+                                port: this.port,
+                                publicKey: this.publicKey,
+                            },
+                        },
+                    }),
+                config.node * 1000,
+            );
+        }
+    }
 
-	setRing(ring: INode[]) {
-		this.ring = ring;
-	}
+    setRing(ring: INode[]) {
+        this.ring = ring;
+    }
 
-	protected async broadcast(method: HttpRequestMethod, endpoint: HttpRequestEndpoint, body?: any) {
-		logger.info(`Broadcast ${method} /${endpoint}`);
+    async broadcast(method: HttpRequestMethod, endpoint: HttpRequestEndpoint, body?: any) {
+        logger.info(`Broadcast ${method} /${endpoint}`);
 
-		const responses = await Promise.all(
-			this.ring
-				.filter((node) => node.index !== this.index)
-				.map((node) => httpRequest({ method, endpoint, url: node.url, port: node.port, body }))
-		);
+        const responses = await Promise.all(
+            this.ring
+                .filter(node => node.index !== this.index)
+                .map(node =>
+                    httpRequest({ method, endpoint, url: node.url, port: node.port, body }),
+                ),
+        );
 
-		return responses;
-	}
+        const errorResponse = responses.find(res => res.status !== 200);
+        if (errorResponse) {
+            const parsedErrorResponse = (await errorResponse.json()) as { message: string };
+            throw new Error(parsedErrorResponse.message);
+        }
 
-	async initBlockchain(blockchain: IBlockchain, utxos: { [key: string]: ITransactionOutput[] }) {
-		try {
-			this.blockchainService.setBlockchain(blockchain);
+        return responses;
+    }
 
-			const incomingUtxos = new Map<string, ITransactionOutput[]>(Object.entries(utxos));
-			this.transactionService.setUtxos(incomingUtxos);
-		} catch (error) {
-			await this.resolveConflicts();
-		}
-	}
+    initBlockchain(
+        blockchain: IBlockchain,
+        utxos: { [key: string]: ITransactionOutput[] },
+        pendingTransactions: ITransaction[],
+    ) {
+        try {
+            this.blockchainService.setBlockchain(blockchain);
+            this.transactionService.setPendingTransactions(pendingTransactions);
 
-	getWalletBalance(): number {
-		const utxos = this.transactionService.getUtxos(this.publicKey);
-		if (!utxos) return 0;
+            const incomingUtxos = new Map<string, ITransactionOutput[]>(Object.entries(utxos));
+            this.transactionService.setUtxos(incomingUtxos);
+        } catch (error) {
+            this.resolveConflicts();
+        } finally {
+            this.initMining();
+        }
+    }
 
-		return utxos.reduce((total, utxo) => total + utxo.amount, 0);
-	}
+    getWalletBalance(): number {
+        const utxos = this.transactionService.getUtxos(this.publicKey);
+        if (!utxos) return 0;
 
-	async postTransaction(recipientId: number, amount: number) {
-		if (recipientId > this.ring.length - 1) throw new Error('Recipient with given ID not found');
-		if (recipientId === this.index) throw new Error('Recipient cannot be the same as the sender');
+        return utxos.reduce((total, utxo) => total + utxo.amount, 0);
+    }
 
-		const newTransaction = new Transaction({
-			amount,
-			senderAddress: this.publicKey,
-			receiverAddress: this.ring[recipientId].publicKey
-		});
+    async postTransaction(recipientId: number, amount: number) {
+        if (recipientId > this.ring.length - 1)
+            throw new Error('Recipient with given ID not found');
+        if (recipientId === this.index)
+            throw new Error('Recipient cannot be the same as the sender');
 
-		this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
-		this.transactionService.validateTransaction(newTransaction);
-		this.blockchainService.appendTransactionToLatestBlock(newTransaction);
+        const newTransaction = new Transaction({
+            amount,
+            senderAddress: this.publicKey,
+            receiverAddress: this.ring[recipientId].publicKey,
+            timestamp: Date.now(),
+        });
 
-		const responses = await this.broadcast('PUT', 'transaction', { transaction: newTransaction });
-		let errorResponse = responses.find((res) => res.status === 400);
-		if (errorResponse) {
-			throw new Error((await errorResponse.json()).message);
-		}
+        this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
+        this.transactionService.validateTransaction(newTransaction);
 
-		setTimeout(() => this.mineLatestBlock());
-	}
+        const latestBlock = this.blockchainService.getLatestBlock();
+        if (
+            !this.minerService.isNodeMining() &&
+            latestBlock.transactions.length < config.blockCapacity
+        ) {
+            this.blockchainService.appendTransactionToLatestBlock(newTransaction);
+        } else {
+            this.transactionService.enqueueTransaction(newTransaction);
+        }
 
-	putTransaction(t: Transaction) {
-		this.transactionService.validateTransaction(t);
-		this.blockchainService.appendTransactionToLatestBlock(t);
+        await this.broadcast('PUT', 'transaction', {
+            transaction: newTransaction,
+        });
 
-		// If block capacity is maxed out, start mining block
-		setTimeout(() => this.mineLatestBlock());
-	}
+        // Initiate mining routine if needed
+        if (
+            !this.minerService.isNodeMining() &&
+            latestBlock.transactions.length === config.blockCapacity
+        ) {
+            this.initMining();
+        }
+    }
 
-	getLatestBlockTransactions(): any[] {
-		const latestBlock = this.blockchainService.getLatestBlock();
-		const latestBlockTransactions = latestBlock.transactions.map((t) => {
-			return {
-				recipientId: this.ring.find((node) => node.publicKey === t.receiverAddress)?.index,
-				...t
-			};
-		});
-		return latestBlockTransactions;
-	}
+    async putTransaction(t: Transaction) {
+        const latestBlock = this.blockchainService.getLatestBlock();
+        this.transactionService.validateTransaction(t);
 
-	getBlockchain() {
-		const blockchain = this.blockchainService.getChain();
-		const utxos = this.transactionService.getAllUtxos();
+        if (
+            !this.minerService.isNodeMining() &&
+            latestBlock.transactions.length < config.blockCapacity
+        ) {
+            this.blockchainService.appendTransactionToLatestBlock(t);
+        } else {
+            this.transactionService.enqueueTransaction(t);
+        }
 
-		return {
-			blockchain,
-			utxos: Object.fromEntries(utxos)
-		};
-	}
+        // Initiate mining routine if needed
+        if (
+            !this.minerService.isNodeMining() &&
+            latestBlock.transactions.length === config.blockCapacity
+        ) {
+            this.initMining();
+        }
+    }
 
-	async resolveConflicts() {
-		// Fetch blockchain from all nodes and set the longest
-		const responses = await this.broadcast('GET', 'blockchain');
+    getLatestBlockTransactions() {
+        const latestBlock = this.blockchainService.getLatestBlock();
 
-		const chains = await Promise.all(
-			responses.map(
-				(res) =>
-					res.json() as Promise<{
-						blockchain: IBlockchain;
-						utxos: { [key: string]: ITransactionOutput[] };
-					}>
-			)
-		);
+        return latestBlock.transactions
+            .filter(t => t.senderAddress === this.publicKey || t.receiverAddress === this.publicKey)
+            .map(t => {
+                return {
+                    recipientId:
+                        this.ring.find(node => node.publicKey === t.receiverAddress)?.index ?? -1,
+                    transactionType: t.receiverAddress === this.publicKey ? 'CREDIT' : 'DEBIT',
+                    ...t,
+                    timestamp: new Date(t.timestamp).toISOString(),
+                };
+            });
+    }
 
-		let maxLength = chains[0].blockchain.blocks.length;
-		let longestChain: IBlockchain = chains[0].blockchain;
-		let longestChainUtxos = chains[0].utxos;
+    getBlockchain() {
+        const blockchain = this.blockchainService.getChain();
+        const utxos = this.transactionService.getAllUtxos();
+        const pendingTransactions = this.transactionService.getPendingTransactions();
 
-		for (const chain of chains) {
-			if (chain.blockchain.blocks.length > maxLength) {
-				logger.info(`length ${chain.blockchain.blocks.length}`);
-				maxLength = chain.blockchain.blocks.length;
-				longestChain = chain.blockchain;
-				longestChainUtxos = chain.utxos;
-			}
-		}
+        return {
+            blockchain,
+            utxos: Object.fromEntries(utxos),
+            pendingTransactions,
+        };
+    }
 
-		this.initBlockchain(longestChain, longestChainUtxos);
-		logger.info('Conflicts resolved');
-	}
+    async resolveConflicts() {
+        // Fetch blockchain from all nodes and set the longest
+        const responses = await this.broadcast('GET', 'blockchain');
 
-	async postBlock(block: IBlock) {
-		try {
-			this.minerService.abortMining();
-			this.blockchainService.insertBlock(block);
+        const chains = await Promise.all(
+            responses.map(
+                res =>
+                    res.json() as Promise<{
+                        blockchain: IBlockchain;
+                        utxos: { [key: string]: ITransactionOutput[] };
+                        pendingTransactions: ITransaction[];
+                    }>,
+            ),
+        );
 
-			logger.info(`Block ${block.index} inserted`);
-		} catch (error) {
-			logger.error(error);
-			await this.resolveConflicts();
-		}
-	}
+        let longestChainIndex = 0;
+        for (let i = 1; i < chains.length; i++) {
+            if (
+                chains[i].blockchain.blocks.length >
+                chains[longestChainIndex].blockchain.blocks.length
+            ) {
+                longestChainIndex = i;
+            }
+        }
 
-	async mineLatestBlock() {
-		try {
-			const latestBlock = this.blockchainService.getLatestBlock();
+        this.initBlockchain(
+            chains[longestChainIndex].blockchain,
+            chains[longestChainIndex].utxos,
+            chains[longestChainIndex].pendingTransactions,
+        );
+        logger.info('Conflicts resolved');
+    }
 
-			if (latestBlock.transactions.length !== config.blockCapacity) {
-				return;
-			}
+    async postBlock(block: IBlock) {
+        try {
+            this.minerService.abortMining();
+            this.blockchainService.insertBlock(block);
 
-			if (await this.minerService.mineBlock(latestBlock)) {
-				await this.broadcast('POST', 'block', { block: latestBlock });
+            logger.info(`Block ${block.index} inserted`);
+        } catch (error) {
+            logger.error(error);
+            await this.resolveConflicts();
+        }
+    }
 
-				this.blockchainService.insertBlock(latestBlock);
-				logger.info(`Block ${latestBlock.index} inserted`);
+    async initMining() {
+        let latestBlock = this.blockchainService.getLatestBlock();
 
-				
-			}
-		} catch (error) {
-			logger.warn(error);
-			
-		}
-	}
+        try {
+            if (
+                this.minerService.isNodeMining() ||
+                latestBlock.transactions.length !== config.blockCapacity
+            ) {
+                return;
+            }
+
+            if (await this.minerService.mineBlock(latestBlock)) {
+                await this.broadcast('POST', 'block', { block: latestBlock });
+
+                this.blockchainService.insertBlock(latestBlock);
+                logger.info(`Block ${latestBlock.index} inserted`);
+            }
+        } catch (error) {
+            logger.warn(error);
+        }
+
+        if (this.transactionService.pendingTransactionsExist()) {
+            logger.info(
+                `There are ${this.transactionService.pendingTransactions.length} pending transactions after mining finished`,
+            );
+            let pendingTransactions = this.transactionService.dequeuePendingTransactions(
+                config.blockCapacity,
+            );
+
+            for (const transaction of pendingTransactions) {
+                this.blockchainService.appendTransactionToLatestBlock(transaction);
+            }
+
+            await this.initMining();
+        }
+    }
 }

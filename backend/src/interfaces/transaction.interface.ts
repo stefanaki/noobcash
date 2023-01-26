@@ -1,12 +1,12 @@
 export default interface ITransaction {
-	transactionId: string;
-	senderAddress: string;
-	receiverAddress: string;
-	amount: number;
-	timestamp: Date;
-	signature?: Buffer;
-	transactionInputs: ITransactionInput[];
-	transactionOutputs: ITransactionOutput[];
+    transactionId: string;
+    senderAddress: string;
+    receiverAddress: string;
+    amount: number;
+    timestamp: number;
+    signature?: Buffer;
+    transactionInputs: ITransactionInput[];
+    transactionOutputs: ITransactionOutput[];
 }
 
 export interface ITransactionInput {

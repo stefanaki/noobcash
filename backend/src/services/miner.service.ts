@@ -3,63 +3,59 @@ import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
 import config from '../config';
 
-const MY_MAX_INT = 8589934592;
+const MAX_INT = Number.MAX_SAFE_INTEGER;
 
-export default class MinerService {
-	private static instance: MinerService;
+class MinerService {
+    private isMiningAborted = false;
+    private isMining = false;
 
-	private isMiningAborted = false;
+    constructor() {}
 
-	private constructor() {}
+    isNodeMining() {
+        return this.isMining;
+    }
 
-	public static getInstance(): MinerService {
-		if (!MinerService.instance) {
-			MinerService.instance = new MinerService();
-		}
+    abortMining() {
+        this.isMiningAborted = true;
+    }
 
-		return this.instance;
-	}
+    async mineBlock(b: IBlock): Promise<boolean> {
+        this.isMiningAborted = false;
+        this.isMining = true;
+        logger.warn(`Mining block ${b.index}...`);
 
-	abortMining() {
-		this.isMiningAborted = true;
-	}
+        const startTime = Date.now();
+        const target = '0'.repeat(config.difficulty);
 
-	async mineBlock(b: IBlock): Promise<IBlock | null> {
-		this.isMiningAborted = false;
-		logger.info('Mining started');
-	
-		const startTime = Date.now();
-		const maxIterations = 100000000; // Adjust as needed
-		const target = '0'.repeat(config.difficulty);
-	
-		let nonce = Math.floor(Math.random() * MY_MAX_INT);
-	
-		let currentHash: string = '';
-		for (let i = 0; i < maxIterations; i++) {
-			currentHash = hash({
-				index: b.index,
-				transactions: b.transactions,
-				nonce: nonce,
-				previousHash: b.previousHash
-			});
-	
-			if (currentHash.startsWith(target)) {
-				logger.info(`Found nonce: ${currentHash} in ${Date.now() - startTime} ms`);
-				b.nonce = nonce;
-				b.currentHash = currentHash;
-				return b;
-			}
-	
-			nonce++;
-	
-			await new Promise((resolve) => setTimeout(resolve));
-			if (this.isMiningAborted) {
-				logger.info('Mining aborted');
-				return null;
-			}
-		}
-	
-		logger.info('Failed to find a valid nonce');
-		return null;
-	}
+        let nonce = Math.floor(Math.random() * MAX_INT);
+
+        let currentHash: string = '';
+        while (true) {
+            currentHash = hash({
+                index: b.index,
+                transactions: b.transactions,
+                nonce: nonce,
+                previousHash: b.previousHash,
+            });
+
+            if (currentHash.startsWith(target)) {
+                logger.info(`Found nonce: ${currentHash} in ${Date.now() - startTime} ms`);
+                b.nonce = nonce;
+                b.currentHash = currentHash;
+                this.isMining = false;
+                return true;
+            }
+
+            nonce++;
+
+            await new Promise(resolve => setTimeout(resolve));
+            if (this.isMiningAborted) {
+                logger.warn('Mining aborted');
+                this.isMining = false;
+                return false;
+            }
+        }
+    }
 }
+
+export default new MinerService();

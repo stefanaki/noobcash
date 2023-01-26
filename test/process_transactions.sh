@@ -1,30 +1,9 @@
 #!/bin/bash
 
-INDEX=${NODE_INDEX}
-URL=${URL}
-PORT=${PORT}
-
-num_nodes=5
-while getopts "n:" opt; do
-    case $opt in
-        n)
-            num_nodes=$OPTARG
-            ;;
-        \?)
-            echo "Invalid option: -$OPTARG" >&2
-            exit 1
-            ;;
-    esac
-done
-
-if [ $num_nodes -eq 5 ]; then
-  directory=5nodes
-elif [ $num_nodes -eq 10 ]; then
-  directory=10nodes
-else
-  echo "Invalid number of nodes: $num_nodes" >&2
-  exit 1
-fi
+INDEX=$1
+URL=$2
+PORT=$3
+NUM_NODES=$4
 
 while read -r line; do
     # Remove "id" prefix
@@ -46,4 +25,4 @@ while read -r line; do
 	fi
 
 	echo $message
-done < ./${directory}/transactions${NODE_INDEX}.txt
+done < ./${NUM_NODES}nodes/transactions${INDEX}.txt
