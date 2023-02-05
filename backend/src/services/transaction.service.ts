@@ -5,6 +5,7 @@ import Transaction from '../entities/transaction.entity';
 import TransactionInput from '../entities/transaction-input.entity';
 import TransactionOutput from '../entities/transaction-output.entity';
 import ITransaction, { ITransactionOutput } from 'src/interfaces/transaction.interface';
+import NoobcashException from '../utilities/noobcash-exception';
 
 class TransactionService {
     private utxos: Map<string, ITransactionOutput[]> = new Map();
@@ -43,13 +44,19 @@ class TransactionService {
     validateTransaction(t: Transaction) {
         // Check if the signature of the transaction is valid
         if (!this.verifySignature(t)) {
-            throw new Error(`Transaction ${t.transactionId} failed, invalid signature`);
+            throw new NoobcashException(
+                `Transaction ${t.transactionId} failed, invalid signature`,
+                400,
+            );
         }
 
         // Check if sender has any UTXO's at all
         let senderUtxos = this.utxos.get(t.senderAddress);
         if (!senderUtxos) {
-            throw new Error(`Transaction ${t.transactionId} failed, no UTXO's found`);
+            throw new NoobcashException(
+                `Transaction ${t.transactionId} failed, no UTXO's found`,
+                400,
+            );
         }
 
         // Find sender UTXO's that can fulfill the transaction and set them as TransactionInputs
@@ -100,7 +107,10 @@ class TransactionService {
         }
 
         if (totalUtxoAmount < t.amount) {
-            throw new Error(`Transaction ${t.transactionId} failed, not enough coins`);
+            throw new NoobcashException(
+                `Transaction ${t.transactionId} failed, not enough coins`,
+                400,
+            );
         }
 
         return {

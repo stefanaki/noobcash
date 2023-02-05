@@ -10,6 +10,7 @@ import IBlockchain from '../interfaces/blockchain.interface';
 import ITransaction, { ITransactionOutput } from '../interfaces/transaction.interface';
 import httpRequest, { HttpRequestEndpoint, HttpRequestMethod } from '../utilities/http';
 import IBlock from '../interfaces/block.interface';
+import NoobcashException from '../utilities/noobcash-exception';
 
 export default class Node implements INode {
     wallet: Wallet;
@@ -74,7 +75,7 @@ export default class Node implements INode {
         const errorResponse = responses.find(res => res.status !== 200);
         if (errorResponse) {
             const parsedErrorResponse = (await errorResponse.json()) as { message: string };
-            throw new Error(parsedErrorResponse.message);
+            throw new NoobcashException(parsedErrorResponse.message, errorResponse.status);
         }
 
         return responses;
@@ -91,7 +92,9 @@ export default class Node implements INode {
 
             const incomingUtxos = new Map<string, ITransactionOutput[]>(Object.entries(utxos));
             this.transactionService.setUtxos(incomingUtxos);
-        } catch (error) {
+        } catch (e) {
+            const error = e as NoobcashException;
+            logger.error(error.message);
             this.resolveConflicts();
         } finally {
             this.initMining();
@@ -107,9 +110,9 @@ export default class Node implements INode {
 
     async postTransaction(recipientId: number, amount: number) {
         if (recipientId > this.ring.length - 1)
-            throw new Error('Recipient with given ID not found');
+            throw new NoobcashException('Recipient with given ID not found', 404);
         if (recipientId === this.index)
-            throw new Error('Recipient cannot be the same as the sender');
+            throw new NoobcashException('Recipient cannot be the same as the sender', 400);
 
         const newTransaction = new Transaction({
             amount,
@@ -233,8 +236,9 @@ export default class Node implements INode {
             this.blockchainService.insertBlock(block);
 
             logger.info(`Block ${block.index} inserted`);
-        } catch (error) {
-            logger.error(error);
+        } catch (e) {
+            const error = e as NoobcashException;
+            logger.error(error.message);
             await this.resolveConflicts();
         }
     }

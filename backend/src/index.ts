@@ -7,6 +7,7 @@ import INode from './interfaces/node.interface';
 import ITransaction, { ITransactionOutput } from './interfaces/transaction.interface';
 import IBlockchain from './interfaces/blockchain.interface';
 import IBlock from './interfaces/block.interface';
+import NoobcashException from './utilities/noobcash-exception';
 
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
@@ -22,8 +23,8 @@ if (node instanceof BootstrapNode) {
             await node.insertNodeToRing(req.body.node);
             res.status(200).json({ nodeId: node.ring.length - 1 });
         } catch (e) {
-            const error = e as Error;
-            res.status(500).json({ message: error.message });
+            const error = e as NoobcashException;
+            res.status(error.code).json({ message: error.message });
         }
     });
 }
@@ -35,9 +36,9 @@ app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => 
         logger.info(`Node ${node.ring[node.ring.length - 1].index} connected to ring!`);
         res.status(200).send('OK');
     } catch (e) {
-        const error = e as Error;
+        const error = e as NoobcashException;
         logger.error(error.message);
-        res.status(400).json({ message: error.message });
+        res.status(error.code).json({ message: error.message });
     }
 });
 
@@ -48,8 +49,8 @@ app.get('/blockchain', (_, res: Response) => {
 
         res.status(200).json({ blockchain, utxos, pendingTransactions });
     } catch (e) {
-        const error = e as Error;
-        res.status(400).json({ message: error.message });
+        const error = e as NoobcashException;
+        res.status(error.code).json({ message: error.message });
     }
 });
 
@@ -102,8 +103,8 @@ app.post('/block', async (req: Request<any, any, { block: IBlock }>, res: Respon
         await node.postBlock(req.body.block);
         res.status(200).json({ message: 'OK' });
     } catch (e) {
-        const error = e as Error;
-        res.status(400).json({ message: error.message });
+        const error = e as NoobcashException;
+        res.status(error.code).json({ message: error.message });
     }
 });
 
@@ -113,8 +114,8 @@ app.get('/transaction', (_, res: Response) => {
         const transactions = node.getLatestBlockTransactions();
         res.status(200).json({ transactions });
     } catch (e) {
-        const error = e as Error;
-        res.status(400).json({ message: error.message });
+        const error = e as NoobcashException;
+        res.status(error.code).json({ message: error.message });
     }
 });
 
@@ -126,9 +127,9 @@ app.post(
             await node.postTransaction(req.body.recipientId, req.body.amount);
             res.status(200).json({ message: 'OK' });
         } catch (e) {
-            const error = e as Error;
+            const error = e as NoobcashException;
             logger.warn(error.message);
-            res.status(400).json({ message: error.message });
+            res.status(error.code).json({ message: error.message });
         }
     },
 );
@@ -141,8 +142,8 @@ app.put(
             await node.putTransaction(req.body.transaction);
             res.status(200).json({ message: 'OK' });
         } catch (e) {
-            const error = e as Error;
-            res.status(400).json({ message: error.message });
+            const error = e as NoobcashException;
+            res.status(error.code).json({ message: error.message });
         }
     },
 );

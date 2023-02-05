@@ -40,7 +40,7 @@ export default class BootstrapNode extends Node {
             body: {
                 blockchain: this.blockchainService.getChain(),
                 utxos: Object.fromEntries(this.transactionService.getAllUtxos()),
-                pendingTransactions: this.transactionService.getPendingTransactions()
+                pendingTransactions: this.transactionService.getPendingTransactions(),
             },
         });
 

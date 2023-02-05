@@ -3,6 +3,7 @@ import logger from '../utilities/logger';
 import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
 import Transaction from '../entities/transaction.entity';
+import NoobcashException from '../utilities/noobcash-exception';
 
 class BlockchainService {
     private chain: IBlockchain = {
@@ -22,7 +23,10 @@ class BlockchainService {
 
         // Current block hash matches verifiable data
         if (hash(this.getValidatableBlockData(block)) !== block.currentHash)
-            throw new Error(`Invalid block ${block.index}, bad hash,,, ${block.currentHash}`);
+            throw new NoobcashException(
+                `Invalid block ${block.index}, bad hash, ${block.currentHash}`,
+                500,
+            );
 
         // Previous block is genesis block
         if (block.index - 1 === 0) return;
@@ -30,7 +34,7 @@ class BlockchainService {
 
         // Previous hash of current block matches hash of previous block
         if (hash(this.getValidatableBlockData(previousBlock)) !== block.previousHash)
-            throw new Error(`Invalid block ${block.index}, bad previous hash`);
+            throw new NoobcashException(`Invalid block ${block.index}, bad previous hash`, 500);
     }
 
     validateChain(chain: IBlockchain = this.chain) {
@@ -43,8 +47,8 @@ class BlockchainService {
 
             logger.info('Blockchain validated');
         } catch (error) {
-            logger.error('Chain not validated, trying to resolve conflicts');
-            throw error;
+            logger.error(error);
+            throw new NoobcashException(`Chain not validated`, 500);
         }
     }
 

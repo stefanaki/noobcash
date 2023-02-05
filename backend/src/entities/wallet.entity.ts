@@ -2,6 +2,7 @@ import IWallet from '../interfaces/wallet.interface';
 import { generateKeyPairSync } from 'crypto';
 import config from '../config';
 import logger from '../utilities/logger';
+import NoobcashException from '../utilities/noobcash-exception';
 
 export default class Wallet implements IWallet {
     publicKey: string;
@@ -30,7 +31,7 @@ export default class Wallet implements IWallet {
             logger.info('RSA pair created');
         } catch (error) {
             logger.error(error);
-            throw error;
+            throw new NoobcashException('Could not generate RSA key pair', 500);
         }
     }
 }
