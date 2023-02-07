@@ -6,10 +6,11 @@ import TransactionInput from '../entities/transaction-input.entity';
 import TransactionOutput from '../entities/transaction-output.entity';
 import ITransaction, { ITransactionOutput } from 'src/interfaces/transaction.interface';
 import NoobcashException from '../utilities/noobcash-exception';
+import Heap from 'heap-js';
 
 class TransactionService {
     private utxos: Map<string, ITransactionOutput[]> = new Map();
-    public pendingTransactions: ITransaction[] = [];
+    public pendingTransactions: Heap<ITransaction> = new Heap((u, v) => u.timestamp - v.timestamp);
 
     constructor() {}
 
@@ -169,7 +170,6 @@ class TransactionService {
 
     enqueueTransaction(t: Transaction) {
         this.pendingTransactions.push(t);
-        this.pendingTransactions.sort((a, b) => a.timestamp - b.timestamp);
     }
 
     pendingTransactionsExist() {
@@ -177,15 +177,28 @@ class TransactionService {
     }
 
     dequeuePendingTransactions(count: number) {
-        return this.pendingTransactions.splice(0, count);
+        const poppedTransactions: ITransaction[] = [];
+
+        while (count > 0) {
+            const t = this.pendingTransactions.pop();
+            if (t) {
+                poppedTransactions.push(t);
+            } else {
+                return poppedTransactions;
+            }
+
+            count--;
+        }
+
+        return poppedTransactions
     }
 
-    getPendingTransactions() {
-        return this.pendingTransactions;
+    getPendingTransactionsArray() {
+        return this.pendingTransactions.toArray();
     }
 
     setPendingTransactions(pendingTransactions: ITransaction[]) {
-        this.pendingTransactions = pendingTransactions;
+        this.pendingTransactions.init(pendingTransactions);
     }
 }
 

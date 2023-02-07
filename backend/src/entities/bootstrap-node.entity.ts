@@ -16,8 +16,6 @@ export default class BootstrapNode extends Node {
         ];
         this.createGenesisBlock();
         logger.info('Genesis block created');
-
-        this.initMining();
     }
 
     async insertNodeToRing(node: INode) {
@@ -40,7 +38,7 @@ export default class BootstrapNode extends Node {
             body: {
                 blockchain: this.blockchainService.getChain(),
                 utxos: Object.fromEntries(this.transactionService.getAllUtxos()),
-                pendingTransactions: this.transactionService.getPendingTransactions(),
+                pendingTransactions: this.transactionService.getPendingTransactionsArray(),
             },
         });
 
@@ -63,20 +61,25 @@ export default class BootstrapNode extends Node {
         this.transactionService.setTransactionOutputs(genesisTransaction, [genesisUtxo]);
         this.transactionService.signTransaction(genesisTransaction, this.wallet.privateKey);
 
-        const genesisBlockData = {
+        const genesisBlock: IBlock = {
             index: 0,
             timestamp: Date.now(),
-            transactions: [genesisTransaction],
+            transactions: [],
             nonce: 0,
             previousHash: '1',
+            currentHash: '',
         };
 
-        const genesisBlock: IBlock = {
-            ...genesisBlockData,
-            currentHash: hash(genesisBlockData),
-        };
+        genesisBlock.currentHash = hash(
+            this.blockchainService.getValidatableBlockData(genesisBlock),
+        );
 
         this.blockchainService.setGenesisBlock(genesisBlock);
         this.transactionService.setInitialUtxo(this.publicKey, genesisUtxo);
+        this.transactionService.enqueueTransaction(genesisTransaction);
+
+        if (this.transactionService.pendingTransactions.length === config.blockCapacity) {
+            this.initMining();
+        }
     }
 }

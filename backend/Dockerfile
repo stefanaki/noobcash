@@ -10,4 +10,6 @@ COPY . .
 
 VOLUME ["/app/node_modules"]
 
-CMD ["npm", "run", "start"]
+RUN npm run build
+
+CMD ["node", "dist/index.js"]

@@ -124,53 +124,28 @@ export default class Node implements INode {
         this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
         this.transactionService.validateTransaction(newTransaction);
 
-        const latestBlock = this.blockchainService.getLatestBlock();
-        if (
-            !this.minerService.isNodeMining() &&
-            latestBlock.transactions.length < config.blockCapacity
-        ) {
-            this.blockchainService.appendTransactionToLatestBlock(newTransaction);
-        } else {
-            this.transactionService.enqueueTransaction(newTransaction);
+        this.transactionService.enqueueTransaction(newTransaction);
+
+        if (this.transactionService.pendingTransactions.length === config.blockCapacity) {
+            this.initMining();
         }
 
         await this.broadcast('PUT', 'transaction', {
             transaction: newTransaction,
         });
-
-        // Initiate mining routine if needed
-        if (
-            !this.minerService.isNodeMining() &&
-            latestBlock.transactions.length === config.blockCapacity
-        ) {
-            this.initMining();
-        }
     }
 
     async putTransaction(t: Transaction) {
-        const latestBlock = this.blockchainService.getLatestBlock();
         this.transactionService.validateTransaction(t);
+        this.transactionService.enqueueTransaction(t);
 
-        if (
-            !this.minerService.isNodeMining() &&
-            latestBlock.transactions.length < config.blockCapacity
-        ) {
-            this.blockchainService.appendTransactionToLatestBlock(t);
-        } else {
-            this.transactionService.enqueueTransaction(t);
-        }
-
-        // Initiate mining routine if needed
-        if (
-            !this.minerService.isNodeMining() &&
-            latestBlock.transactions.length === config.blockCapacity
-        ) {
+        if (this.transactionService.pendingTransactions.length === config.blockCapacity) {
             this.initMining();
         }
     }
 
     getLatestBlockTransactions() {
-        const latestBlock = this.blockchainService.getLatestBlock();
+        const latestBlock = this.blockchainService.getLatestMinedBlock();
 
         return latestBlock.transactions
             .filter(t => t.senderAddress === this.publicKey || t.receiverAddress === this.publicKey)
@@ -188,7 +163,7 @@ export default class Node implements INode {
     getBlockchain() {
         const blockchain = this.blockchainService.getChain();
         const utxos = this.transactionService.getAllUtxos();
-        const pendingTransactions = this.transactionService.getPendingTransactions();
+        const pendingTransactions = this.transactionService.getPendingTransactionsArray();
 
         return {
             blockchain,
@@ -244,39 +219,28 @@ export default class Node implements INode {
     }
 
     async initMining() {
-        let latestBlock = this.blockchainService.getLatestBlock();
+        if (this.minerService.isNodeMining()) return;
 
-        try {
-            if (
-                this.minerService.isNodeMining() ||
-                latestBlock.transactions.length !== config.blockCapacity
-            ) {
-                return;
-            }
+        while (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
+            const currentBlock = this.blockchainService.getCurrentBlock();
 
-            if (await this.minerService.mineBlock(latestBlock)) {
-                await this.broadcast('POST', 'block', { block: latestBlock });
-
-                this.blockchainService.insertBlock(latestBlock);
-                logger.info(`Block ${latestBlock.index} inserted`);
-            }
-        } catch (error) {
-            logger.warn(error);
-        }
-
-        if (this.transactionService.pendingTransactionsExist()) {
-            logger.info(
-                `There are ${this.transactionService.pendingTransactions.length} pending transactions after mining finished`,
-            );
             let pendingTransactions = this.transactionService.dequeuePendingTransactions(
                 config.blockCapacity,
             );
 
             for (const transaction of pendingTransactions) {
-                this.blockchainService.appendTransactionToLatestBlock(transaction);
+                this.blockchainService.appendTransactionToCurrentBlock(transaction);
+            }
+            this.blockchainService.updateCurrentBlockHash();
+
+            if (await this.minerService.mineBlock(currentBlock)) {
+                await this.broadcast('POST', 'block', { block: currentBlock });
+                this.blockchainService.insertBlock(currentBlock);
+                logger.info(`Block ${currentBlock.index} inserted`);
             }
 
-            await this.initMining();
+            if (this.transactionService.pendingTransactionsExist())
+                logger.info(`Queue: Pending ${this.transactionService.pendingTransactions.length}`);
         }
     }
 }

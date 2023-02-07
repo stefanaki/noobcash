@@ -10,16 +10,23 @@ class BlockchainService {
         blocks: [],
     };
 
+    private currentBlock: IBlock = {
+        currentHash: '0',
+        previousHash: '0',
+        nonce: 1,
+        index: 0,
+        timestamp: Date.now(),
+        transactions: [],
+    };
+
     constructor() {}
 
     getBlock(chain: IBlockchain = this.chain, index: number): IBlock {
         return chain.blocks[index];
     }
 
-    validateBlock(chain: IBlockchain = this.chain, index: number) {
-        if (index === 0) return;
-
-        const block = this.getBlock(chain, index);
+    validateBlock(chain: IBlockchain = this.chain, block: IBlock) {
+        if (block.index === 0) return;
 
         // Current block hash matches verifiable data
         if (hash(this.getValidatableBlockData(block)) !== block.currentHash)
@@ -42,7 +49,7 @@ class BlockchainService {
             for (let block of chain.blocks) {
                 if (block.index === 0) continue;
 
-                this.validateBlock(chain, block.index);
+                this.validateBlock(chain, block);
             }
 
             logger.info('Blockchain validated');
@@ -55,7 +62,7 @@ class BlockchainService {
     getValidatableBlockData(b: IBlock) {
         return {
             index: b.index,
-            // timestamp: b.timestamp, // sneaky
+            // timestamp: b.timestamp,
             transactions: b.transactions,
             nonce: b.nonce,
             previousHash: b.previousHash,
@@ -68,7 +75,8 @@ class BlockchainService {
     }
 
     setGenesisBlock(genesisBlock: IBlock) {
-        this.chain.blocks = [genesisBlock];
+        this.chain.blocks = [];
+        this.currentBlock = genesisBlock;
     }
 
     getChain() {
@@ -76,36 +84,45 @@ class BlockchainService {
     }
 
     insertBlock(b: IBlock) {
-        this.validateBlock(this.chain, b.index);
-
-        this.chain.blocks.splice(b.index, 1);
+        this.validateBlock(this.chain, b);
         this.chain.blocks.push(b);
 
         const newBlock: IBlock = {
             index: b.index + 1,
             currentHash: '',
             nonce: 0,
-            previousHash: b.currentHash,
+            previousHash: '',
             timestamp: Date.now(),
             transactions: [],
         };
 
         const newBlockCurrentHash = hash(this.getValidatableBlockData(newBlock));
         newBlock.currentHash = newBlockCurrentHash;
-        this.chain.blocks.push(newBlock);
+        newBlock.previousHash = b.currentHash;
 
+        this.currentBlock = newBlock;
         this.validateChain(this.chain);
     }
 
-    getLatestBlock() {
-        const lastIndex = this.chain.blocks.length - 1;
-        return this.chain.blocks[lastIndex];
+    getCurrentBlock() {
+        return this.currentBlock;
     }
 
-    appendTransactionToLatestBlock(t: Transaction) {
-        const latestBlock = this.getLatestBlock();
-        latestBlock.transactions.push(t);
-        latestBlock.currentHash = hash(this.getValidatableBlockData(latestBlock));
+    getLatestMinedBlock() {
+        const latestBlockIndex = this.chain.blocks.length - 1;
+
+        if (latestBlockIndex === -1)
+            throw new NoobcashException('No blocks have been mined yet', 500);
+
+        return this.chain.blocks[latestBlockIndex];
+    }
+
+    appendTransactionToCurrentBlock(t: Transaction) {
+        this.currentBlock.transactions.push(t);
+    }
+
+    updateCurrentBlockHash() {
+        this.currentBlock.currentHash = hash(this.getValidatableBlockData(this.currentBlock));
     }
 }
 

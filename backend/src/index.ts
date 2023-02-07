@@ -8,10 +8,12 @@ import ITransaction, { ITransactionOutput } from './interfaces/transaction.inter
 import IBlockchain from './interfaces/blockchain.interface';
 import IBlock from './interfaces/block.interface';
 import NoobcashException from './utilities/noobcash-exception';
+import cors from 'cors';
 
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
 
+app.use(cors())
 app.use(express.json());
 
 // REST endpoints
@@ -28,6 +30,11 @@ if (node instanceof BootstrapNode) {
         }
     });
 }
+
+// Get node group information
+app.get('/ring', (_: any, res: Response) => {
+    res.status(200).json({ ring: node.ring });
+});
 
 // Update info of all nodes
 app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => {
@@ -59,16 +66,19 @@ app.get('/blockchain_test', (_, res: Response) => {
     try {
         const { blockchain } = node.getBlockchain();
 
-        const bl = blockchain.blocks.map(block =>
-            block.transactions.map(t => {
-                return {
-                    sender: node.ring.find(node => node.publicKey === t.senderAddress)?.index,
-                    recv: node.ring.find(node => node.publicKey === t.receiverAddress)?.index,
-                    amount: t.amount,
-                    timestamp: t.timestamp,
-                };
-            }),
-        );
+        const bl = blockchain.blocks.map(block => {
+            return {
+                block_idx: block.index,
+                transactions: block.transactions.map(t => {
+                    return {
+                        sender: node.ring.find(node => node.publicKey === t.senderAddress)?.index,
+                        recv: node.ring.find(node => node.publicKey === t.receiverAddress)?.index,
+                        amount: t.amount,
+                        timestamp: t.timestamp,
+                    };
+                }),
+            };
+        });
 
         res.status(200).json({ bl });
     } catch (e) {
