@@ -43,6 +43,8 @@ class TransactionService {
     }
 
     validateTransaction(t: Transaction) {
+        if (t.senderAddress === 'satone') return;
+
         // Check if the signature of the transaction is valid
         if (!this.verifySignature(t)) {
             throw new NoobcashException(
@@ -91,7 +93,7 @@ class TransactionService {
         updatedSenderUtxos.push(newTransactionOutputs[1]);
         this.utxos.set(t.senderAddress, updatedSenderUtxos);
 
-        logger.info(`Transaction ${t.transactionId} validated`);
+        // logger.info(`Transaction ${t.transactionId} validated`);
     }
 
     findTransactionInputs(t: Transaction, senderUtxos: ITransactionOutput[]) {
@@ -177,20 +179,24 @@ class TransactionService {
     }
 
     dequeuePendingTransactions(count: number) {
-        const poppedTransactions: ITransaction[] = [];
+        const dequeuedTransactions: ITransaction[] = [];
 
         while (count > 0) {
             const t = this.pendingTransactions.pop();
-            if (t) {
-                poppedTransactions.push(t);
-            } else {
-                return poppedTransactions;
-            }
 
-            count--;
+            if (!t) return dequeuedTransactions;
+
+            try {
+                this.validateTransaction(t);
+
+                dequeuedTransactions.push(t);
+                count--;
+            } catch (error) {
+                logger.info(error.message);
+            }
         }
 
-        return poppedTransactions
+        return dequeuedTransactions;
     }
 
     getPendingTransactionsArray() {

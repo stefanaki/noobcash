@@ -52,7 +52,7 @@ class BlockchainService {
                 this.validateBlock(chain, block);
             }
 
-            logger.info('Blockchain validated');
+            // logger.info('Blockchain validated');
         } catch (error) {
             logger.error(error);
             throw new NoobcashException(`Chain not validated`, 500);
@@ -84,7 +84,10 @@ class BlockchainService {
     }
 
     insertBlock(b: IBlock) {
+        if (b.index < this.currentBlock.index) return;
+        
         this.validateBlock(this.chain, b);
+
         this.chain.blocks.push(b);
 
         const newBlock: IBlock = {
@@ -123,6 +126,10 @@ class BlockchainService {
 
     updateCurrentBlockHash() {
         this.currentBlock.currentHash = hash(this.getValidatableBlockData(this.currentBlock));
+    }
+
+    setCurrentBlock(currentBlock: IBlock) {
+        this.currentBlock = currentBlock;
     }
 }
 

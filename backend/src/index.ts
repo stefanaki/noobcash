@@ -13,7 +13,7 @@ import cors from 'cors';
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
 
-app.use(cors())
+app.use(cors());
 app.use(express.json());
 
 // REST endpoints
@@ -52,9 +52,9 @@ app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => 
 // Get Blockchain and UTXO's
 app.get('/blockchain', (_, res: Response) => {
     try {
-        const { blockchain, utxos, pendingTransactions } = node.getBlockchain();
+        const { blockchain, currentBlock, utxos, pendingTransactions } = node.getBlockchain();
 
-        res.status(200).json({ blockchain, utxos, pendingTransactions });
+        res.status(200).json({ blockchain, currentBlock, utxos, pendingTransactions });
     } catch (e) {
         const error = e as NoobcashException;
         res.status(error.code).json({ message: error.message });
@@ -87,7 +87,7 @@ app.get('/blockchain_test', (_, res: Response) => {
     }
 });
 
-// Initialize blockchain with genesis block
+// Set the node state
 app.post(
     '/blockchain',
     (
@@ -96,14 +96,22 @@ app.post(
             any,
             {
                 blockchain: IBlockchain;
+                currentBlock: IBlock;
                 utxos: { [key: string]: ITransactionOutput[] };
                 pendingTransactions: ITransaction[];
             }
         >,
         res: Response,
     ) => {
-        node.initBlockchain(req.body.blockchain, req.body.utxos, req.body.pendingTransactions);
-        res.status(200).json({ message: 'OK' });
+        try {
+            const { blockchain, currentBlock, utxos, pendingTransactions } = req.body;
+
+            node.setState(blockchain, currentBlock, utxos, pendingTransactions);
+            res.status(200).json({ message: 'OK' });
+        } catch (e) {
+            const error = e as NoobcashException;
+            res.status(error.code).json({ message: error.message });
+        }
     },
 );
 
@@ -162,5 +170,29 @@ app.put(
 app.get('/balance', (_, res: Response) => {
     res.status(200).json({ balance: node.getWalletBalance() });
 });
+
+app.get('/balance_test', (req, res) => {
+    let balances: number[] = [];
+
+    node.ring.forEach(n => {
+        const u = node.transactionService.getUtxos(n.publicKey);
+        if (!u) {
+            balances.push(0);
+        } else {
+            balances.push(u.reduce((acc, curr) => acc + curr.amount, 0));
+        }
+    });
+
+    res.status(200).json({balances});
+});
+
+app.get('/queue', (req, res) => {
+    res.status(200).json({queue: node.transactionService.getPendingTransactionsArray().map(t => {
+        return {
+            recv: node.ring.find(n => n.publicKey === t.receiverAddress)?.index,
+            ...t
+        }
+    })});
+})
 
 app.listen(config.port, () => logger.info(`Started listening on ${config.url}:${config.port}`));

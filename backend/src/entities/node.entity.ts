@@ -34,7 +34,7 @@ export default class Node implements INode {
         this.blockchainService = BlockchainService;
         logger.info('Noobcash node initialized');
 
-        // Wait NODE_INDEX seconds before contacting bootstrap node
+        // Wait at least NODE_INDEX seconds before contacting bootstrap node
         if (!config.isBootstrap) {
             setTimeout(
                 async () =>
@@ -52,7 +52,7 @@ export default class Node implements INode {
                             },
                         },
                     }),
-                config.node * 1000,
+                config.node * 1500,
             );
         }
     }
@@ -81,23 +81,27 @@ export default class Node implements INode {
         return responses;
     }
 
-    initBlockchain(
+    setState(
         blockchain: IBlockchain,
+        currentBlock: IBlock,
         utxos: { [key: string]: ITransactionOutput[] },
         pendingTransactions: ITransaction[],
     ) {
         try {
             this.blockchainService.setBlockchain(blockchain);
+            this.blockchainService.setCurrentBlock(currentBlock);
             this.transactionService.setPendingTransactions(pendingTransactions);
 
-            const incomingUtxos = new Map<string, ITransactionOutput[]>(Object.entries(utxos));
-            this.transactionService.setUtxos(incomingUtxos);
+            const utxosMap = new Map<string, ITransactionOutput[]>(Object.entries(utxos));
+            this.transactionService.setUtxos(utxosMap);
+
+            if (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
+                this.initMining();
+            }
         } catch (e) {
             const error = e as NoobcashException;
             logger.error(error.message);
             this.resolveConflicts();
-        } finally {
-            this.initMining();
         }
     }
 
@@ -109,7 +113,7 @@ export default class Node implements INode {
     }
 
     async postTransaction(recipientId: number, amount: number) {
-        if (recipientId > this.ring.length - 1)
+        if (recipientId < 0 || recipientId > this.ring.length - 1)
             throw new NoobcashException('Recipient with given ID not found', 404);
         if (recipientId === this.index)
             throw new NoobcashException('Recipient cannot be the same as the sender', 400);
@@ -122,24 +126,22 @@ export default class Node implements INode {
         });
 
         this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
-        this.transactionService.validateTransaction(newTransaction);
-
-        this.transactionService.enqueueTransaction(newTransaction);
-
-        if (this.transactionService.pendingTransactions.length === config.blockCapacity) {
-            this.initMining();
-        }
 
         await this.broadcast('PUT', 'transaction', {
             transaction: newTransaction,
         });
+
+        this.transactionService.enqueueTransaction(newTransaction);
+
+        if (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
+            this.initMining();
+        }
     }
 
     async putTransaction(t: Transaction) {
-        this.transactionService.validateTransaction(t);
         this.transactionService.enqueueTransaction(t);
 
-        if (this.transactionService.pendingTransactions.length === config.blockCapacity) {
+        if (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
             this.initMining();
         }
     }
@@ -164,15 +166,19 @@ export default class Node implements INode {
         const blockchain = this.blockchainService.getChain();
         const utxos = this.transactionService.getAllUtxos();
         const pendingTransactions = this.transactionService.getPendingTransactionsArray();
+        const currentBlock = this.blockchainService.getCurrentBlock();
 
         return {
             blockchain,
+            currentBlock,
             utxos: Object.fromEntries(utxos),
             pendingTransactions,
         };
     }
 
     async resolveConflicts() {
+        this.minerService.abortMining();
+
         // Fetch blockchain from all nodes and set the longest
         const responses = await this.broadcast('GET', 'blockchain');
 
@@ -181,6 +187,7 @@ export default class Node implements INode {
                 res =>
                     res.json() as Promise<{
                         blockchain: IBlockchain;
+                        currentBlock: IBlock;
                         utxos: { [key: string]: ITransactionOutput[] };
                         pendingTransactions: ITransaction[];
                     }>,
@@ -197,12 +204,17 @@ export default class Node implements INode {
             }
         }
 
-        this.initBlockchain(
+        this.setState(
             chains[longestChainIndex].blockchain,
+            chains[longestChainIndex].currentBlock,
             chains[longestChainIndex].utxos,
             chains[longestChainIndex].pendingTransactions,
         );
         logger.info('Conflicts resolved');
+
+        if (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
+            this.initMining();
+        }
     }
 
     async postBlock(block: IBlock) {
@@ -214,33 +226,43 @@ export default class Node implements INode {
         } catch (e) {
             const error = e as NoobcashException;
             logger.error(error.message);
-            await this.resolveConflicts();
+            this.resolveConflicts();
         }
     }
 
     async initMining() {
-        if (this.minerService.isNodeMining()) return;
+        try {
+            if (this.minerService.isNodeMining() || this.ring.length < config.numOfNodes) return;
+            this.blockchainService.validateChain();
 
-        while (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
-            const currentBlock = this.blockchainService.getCurrentBlock();
+            while (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
+                const currentBlock = this.blockchainService.getCurrentBlock();
 
-            let pendingTransactions = this.transactionService.dequeuePendingTransactions(
-                config.blockCapacity,
-            );
+                let pendingTransactions = this.transactionService.dequeuePendingTransactions(
+                    config.blockCapacity,
+                );
 
-            for (const transaction of pendingTransactions) {
-                this.blockchainService.appendTransactionToCurrentBlock(transaction);
+                for (const transaction of pendingTransactions) {
+                    this.blockchainService.appendTransactionToCurrentBlock(transaction);
+                }
+                
+                this.blockchainService.updateCurrentBlockHash();
+
+                if (await this.minerService.mineBlock(currentBlock)) {
+                    await this.broadcast('POST', 'block', { block: currentBlock });
+                    this.blockchainService.insertBlock(currentBlock);
+                    logger.info(`Block ${currentBlock.index} inserted`);
+                }
+
+                if (this.transactionService.pendingTransactionsExist())
+                    logger.info(
+                        `Queue: Pending ${this.transactionService.pendingTransactions.length}`,
+                    );
+
+                this.blockchainService.validateChain();
             }
-            this.blockchainService.updateCurrentBlockHash();
-
-            if (await this.minerService.mineBlock(currentBlock)) {
-                await this.broadcast('POST', 'block', { block: currentBlock });
-                this.blockchainService.insertBlock(currentBlock);
-                logger.info(`Block ${currentBlock.index} inserted`);
-            }
-
-            if (this.transactionService.pendingTransactionsExist())
-                logger.info(`Queue: Pending ${this.transactionService.pendingTransactions.length}`);
+        } catch {
+            this.resolveConflicts();
         }
     }
 }

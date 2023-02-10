@@ -37,6 +37,7 @@ export default class BootstrapNode extends Node {
             method: 'POST',
             body: {
                 blockchain: this.blockchainService.getChain(),
+                currentBlock: this.blockchainService.getCurrentBlock(),
                 utxos: Object.fromEntries(this.transactionService.getAllUtxos()),
                 pendingTransactions: this.transactionService.getPendingTransactionsArray(),
             },
@@ -78,7 +79,7 @@ export default class BootstrapNode extends Node {
         this.transactionService.setInitialUtxo(this.publicKey, genesisUtxo);
         this.transactionService.enqueueTransaction(genesisTransaction);
 
-        if (this.transactionService.pendingTransactions.length === config.blockCapacity) {
+        if (config.blockCapacity === 1) {
             this.initMining();
         }
     }

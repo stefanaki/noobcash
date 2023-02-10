@@ -19,7 +19,7 @@ You can simulate the system on a single machine by running multiple Docker conta
     ```sh
     NODE_INDEX=1 \
     NUM_NODES=5 \
-    IP=192.168.0.1${NODE_INDEX}
+    IP=192.168.0.1${NODE_INDEX} \
     URL=http://${IP} \
     PORT=300${NODE_INDEX} \
     IS_BOOTSTRAP=false \
