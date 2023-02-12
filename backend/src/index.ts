@@ -3,12 +3,10 @@ import Node from './entities/node.entity';
 import logger from './utilities/logger';
 import express, { Request, Response } from 'express';
 import BootstrapNode from './entities/bootstrap-node.entity';
-import INode from './interfaces/node.interface';
-import ITransaction, { ITransactionOutput } from './interfaces/transaction.interface';
-import IBlockchain from './interfaces/blockchain.interface';
 import IBlock from './interfaces/block.interface';
 import NoobcashException from './utilities/noobcash-exception';
 import cors from 'cors';
+import { BalanceDto, BlockchainDto, NodeDto, RingDto, TransactionDto } from './interfaces/api.dto';
 
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
@@ -20,7 +18,7 @@ app.use(express.json());
 
 // Connect node to ring (only bootstrap node exposes this endpoint)
 if (node instanceof BootstrapNode) {
-    app.post('/node', async (req: Request<any, any, { node: INode }>, res: Response) => {
+    app.post('/node', async (req: Request<any, any, NodeDto>, res: Response) => {
         try {
             await node.insertNodeToRing(req.body.node);
             res.status(200).json({ nodeId: node.ring.length - 1 });
@@ -32,12 +30,12 @@ if (node instanceof BootstrapNode) {
 }
 
 // Get node group information
-app.get('/ring', (_: any, res: Response) => {
+app.get('/ring', (_: any, res: Response<RingDto>) => {
     res.status(200).json({ ring: node.ring });
 });
 
 // Update info of all nodes
-app.post('/ring', (req: Request<any, any, { ring: INode[] }>, res: Response) => {
+app.post('/ring', (req: Request<any, any, RingDto>, res: Response) => {
     try {
         node.setRing(req.body.ring);
         logger.info(`Node ${node.ring[node.ring.length - 1].index} connected to ring!`);
@@ -94,12 +92,7 @@ app.post(
         req: Request<
             any,
             any,
-            {
-                blockchain: IBlockchain;
-                currentBlock: IBlock;
-                utxos: { [key: string]: ITransactionOutput[] };
-                pendingTransactions: ITransaction[];
-            }
+            BlockchainDto
         >,
         res: Response,
     ) => {
@@ -116,9 +109,9 @@ app.post(
 );
 
 // Impose latest block to all nodes, after successful mining
-app.post('/block', async (req: Request<any, any, { block: IBlock }>, res: Response) => {
+app.post('/block', async (req: Request<any, any, { block: IBlock, stateChecksum: string }>, res: Response) => {
     try {
-        await node.postBlock(req.body.block);
+        await node.postBlock(req.body.block, req.body.stateChecksum);
         res.status(200).json({ message: 'OK' });
     } catch (e) {
         const error = e as NoobcashException;
@@ -155,7 +148,7 @@ app.post(
 // Broadcast new transaction
 app.put(
     '/transaction',
-    async (req: Request<any, any, { transaction: ITransaction }>, res: Response) => {
+    async (req: Request<any, any, TransactionDto>, res: Response) => {
         try {
             await node.putTransaction(req.body.transaction);
             res.status(200).json({ message: 'OK' });
@@ -167,7 +160,7 @@ app.put(
 );
 
 // Get wallet balance
-app.get('/balance', (_, res: Response) => {
+app.get('/balance', (_, res: Response<BalanceDto>) => {
     res.status(200).json({ balance: node.getWalletBalance() });
 });
 
@@ -186,13 +179,8 @@ app.get('/balance_test', (req, res) => {
     res.status(200).json({balances});
 });
 
-app.get('/queue', (req, res) => {
-    res.status(200).json({queue: node.transactionService.getPendingTransactionsArray().map(t => {
-        return {
-            recv: node.ring.find(n => n.publicKey === t.receiverAddress)?.index,
-            ...t
-        }
-    })});
-})
+app.get('/queue', (req, res) => 
+    res.status(200).json({queue: node.transactionService.getPendingTransactionsArray().map(t => t.transactionId)})
+)
 
 app.listen(config.port, () => logger.info(`Started listening on ${config.url}:${config.port}`));

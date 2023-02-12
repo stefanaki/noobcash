@@ -4,6 +4,7 @@ import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
 import Transaction from '../entities/transaction.entity';
 import NoobcashException from '../utilities/noobcash-exception';
+import transactionService from './transaction.service';
 
 class BlockchainService {
     private chain: IBlockchain = {
@@ -85,7 +86,7 @@ class BlockchainService {
 
     insertBlock(b: IBlock) {
         if (b.index < this.currentBlock.index) return;
-        
+
         this.validateBlock(this.chain, b);
 
         this.chain.blocks.push(b);
@@ -130,6 +131,23 @@ class BlockchainService {
 
     setCurrentBlock(currentBlock: IBlock) {
         this.currentBlock = currentBlock;
+    }
+
+    getNodeStateChecksum(): string {
+        return hash({
+            currentBlockIndex: this.currentBlock.index,
+            blockchain: this.getChain(),
+            transactionQueue: transactionService.getPendingTransactionsArray(),
+            utxos: transactionService.getAllUtxos(),
+        });
+    }
+
+    validateStateChecksum(stateChecksum: string) {
+        const localStateChecksum = this.getNodeStateChecksum();
+
+        if (localStateChecksum !== stateChecksum) {
+            throw new NoobcashException(`State checksum validation failed`, 500);
+        }
     }
 }
 

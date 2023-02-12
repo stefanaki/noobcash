@@ -11,6 +11,7 @@ import ITransaction, { ITransactionOutput } from '../interfaces/transaction.inte
 import httpRequest, { HttpRequestEndpoint, HttpRequestMethod } from '../utilities/http';
 import IBlock from '../interfaces/block.interface';
 import NoobcashException from '../utilities/noobcash-exception';
+import { BlockchainDto, LatestBlockTransactionsDto } from '../interfaces/api.dto';
 
 export default class Node implements INode {
     wallet: Wallet;
@@ -127,11 +128,10 @@ export default class Node implements INode {
 
         this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
 
+        this.transactionService.enqueueTransaction(newTransaction);
         await this.broadcast('PUT', 'transaction', {
             transaction: newTransaction,
         });
-
-        this.transactionService.enqueueTransaction(newTransaction);
 
         if (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
             this.initMining();
@@ -146,7 +146,7 @@ export default class Node implements INode {
         }
     }
 
-    getLatestBlockTransactions() {
+    getLatestBlockTransactions(): LatestBlockTransactionsDto[] {
         const latestBlock = this.blockchainService.getLatestMinedBlock();
 
         return latestBlock.transactions
@@ -156,8 +156,11 @@ export default class Node implements INode {
                     recipientId:
                         this.ring.find(node => node.publicKey === t.receiverAddress)?.index ?? -1,
                     transactionType: t.receiverAddress === this.publicKey ? 'CREDIT' : 'DEBIT',
-                    ...t,
                     timestamp: new Date(t.timestamp).toISOString(),
+                    transactionId: t.transactionId,
+                    senderAddress: t.senderAddress,
+                    receiverAddress: t.receiverAddress,
+                    amount: t.amount,
                 };
             });
     }
@@ -183,15 +186,7 @@ export default class Node implements INode {
         const responses = await this.broadcast('GET', 'blockchain');
 
         const chains = await Promise.all(
-            responses.map(
-                res =>
-                    res.json() as Promise<{
-                        blockchain: IBlockchain;
-                        currentBlock: IBlock;
-                        utxos: { [key: string]: ITransactionOutput[] };
-                        pendingTransactions: ITransaction[];
-                    }>,
-            ),
+            responses.map(res => res.json() as Promise<BlockchainDto>),
         );
 
         let longestChainIndex = 0;
@@ -217,9 +212,10 @@ export default class Node implements INode {
         }
     }
 
-    async postBlock(block: IBlock) {
+    async postBlock(block: IBlock, stateChecksum: string) {
         try {
             this.minerService.abortMining();
+            this.blockchainService.validateStateChecksum(stateChecksum);
             this.blockchainService.insertBlock(block);
 
             logger.info(`Block ${block.index} inserted`);
@@ -233,7 +229,6 @@ export default class Node implements INode {
     async initMining() {
         try {
             if (this.minerService.isNodeMining() || this.ring.length < config.numOfNodes) return;
-            this.blockchainService.validateChain();
 
             while (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
                 const currentBlock = this.blockchainService.getCurrentBlock();
@@ -245,11 +240,12 @@ export default class Node implements INode {
                 for (const transaction of pendingTransactions) {
                     this.blockchainService.appendTransactionToCurrentBlock(transaction);
                 }
-                
+
                 this.blockchainService.updateCurrentBlockHash();
 
                 if (await this.minerService.mineBlock(currentBlock)) {
-                    await this.broadcast('POST', 'block', { block: currentBlock });
+                    const stateChecksum = this.blockchainService.getNodeStateChecksum();
+                    await this.broadcast('POST', 'block', { block: currentBlock, stateChecksum });
                     this.blockchainService.insertBlock(currentBlock);
                     logger.info(`Block ${currentBlock.index} inserted`);
                 }
@@ -258,8 +254,6 @@ export default class Node implements INode {
                     logger.info(
                         `Queue: Pending ${this.transactionService.pendingTransactions.length}`,
                     );
-
-                this.blockchainService.validateChain();
             }
         } catch {
             this.resolveConflicts();
