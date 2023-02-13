@@ -1,0 +1,23 @@
+<h2 mat-dialog-title>Create Transaction</h2>
+Specify the receiver node and the transfer amount
+<mat-dialog-content>
+  <form [formGroup]="createTransactionForm" (submit)="onSubmit()">
+    <mat-form-field>
+      <mat-label>Recipient Node</mat-label>
+      <mat-select formControlName="recipient">
+        <mat-option *ngFor="let node of this.ring" [value]="node.index"
+          >{{ node.index }} - {{ node.url }}:{{ node.port }}</mat-option
+        >
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Amount (NBC)</mat-label>
+      <input type="number" required matInput formControlName="amount" />
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" type="submit">
+      Transfer NBC
+    </button>
+  </form>
+</mat-dialog-content>

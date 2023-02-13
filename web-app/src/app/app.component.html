@@ -10,7 +10,7 @@
     </button>
     <mat-menu #menu="matMenu">
       <button mat-menu-item routerLink="transaction">View</button>
-      <button mat-menu-item routerLink="transaction/create">Create</button>
+      <button mat-menu-item (click)="onCreateClick()">Create</button>
     </mat-menu>
     <button
       mat-button
@@ -43,4 +43,6 @@
   </div>
 </mat-toolbar>
 
-<router-outlet></router-outlet>
+<div class="container">
+  <router-outlet></router-outlet>
+</div>

@@ -152,9 +152,12 @@ export default class Node implements INode {
         return latestBlock.transactions
             .filter(t => t.senderAddress === this.publicKey || t.receiverAddress === this.publicKey)
             .map(t => {
+                const recipientId = this.ring.find(node => node.publicKey === t.receiverAddress)?.index ?? -1;
+                const senderId = this.ring.find(node => node.publicKey === t.senderAddress)?.index ?? -1;
+
                 return {
-                    recipientId:
-                        this.ring.find(node => node.publicKey === t.receiverAddress)?.index ?? -1,
+                    recipientId,
+                    senderId,
                     transactionType: t.receiverAddress === this.publicKey ? 'CREDIT' : 'DEBIT',
                     timestamp: new Date(t.timestamp).toISOString(),
                     transactionId: t.transactionId,

@@ -11,6 +11,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { TransactionsTableComponent } from './components/transactions-table/transactions-table.component';
 import { BalanceCardComponent } from './components/balance-card/balance-card.component';
 import { HelpComponent } from './components/help/help.component';
+import { CreateTransactionComponent } from './components/create-transaction/create-transaction.component';
 
 
 @NgModule({
@@ -19,7 +20,8 @@ import { HelpComponent } from './components/help/help.component';
     LoginFormComponent,
     TransactionsTableComponent,
     BalanceCardComponent,
-    HelpComponent
+    HelpComponent,
+    CreateTransactionComponent
   ],
   imports: [
     BrowserModule,

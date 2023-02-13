@@ -5,6 +5,7 @@ import ITransaction, { ITransactionOutput } from "./transaction.interface";
 
 export interface LatestBlockTransactionsDto {
     recipientId: number;
+    senderId: number;
     transactionType: 'CREDIT' | 'DEBIT',
     timestamp: string;
     transactionId: string;
