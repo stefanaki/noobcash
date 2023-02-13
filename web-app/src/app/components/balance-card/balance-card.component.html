@@ -1,0 +1,8 @@
+<mat-card>
+  <mat-card-title>Your Balance</mat-card-title>
+  <mat-card-content *ngIf="(balance$ | async) as data">
+    <h1>
+      {{data.balance}} NBC
+    </h1>
+  </mat-card-content>
+</mat-card>

@@ -1,0 +1,21 @@
+<div class="login-container">
+  <mat-card>
+    <mat-card-title>Noobcash Credentials</mat-card-title>
+    <mat-card-subtitle>Enter the URL and the port of your Noobcash node</mat-card-subtitle>
+    <mat-card-content>
+      <form [formGroup]="loginForm" (submit)="onSubmit()">
+        <mat-form-field appearance="fill">
+          <mat-label>URL</mat-label>
+          <input required matInput formControlName="url">
+        </mat-form-field>
+        <mat-form-field appearance="fill">
+          <mat-label>Port</mat-label>
+          <input type="number" required matInput maxlength="5" formControlName="port">
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" type="submit">Login</button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+</div>
