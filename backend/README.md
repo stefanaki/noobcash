@@ -14,7 +14,7 @@ You can simulate the system on a single machine by running multiple Docker conta
     sudo docker network create --subnet=192.168.0.0/24 nb-net
     ```
 
-3. Edit node-specific environment variables
+3. In the `node.sh` file, edit node-specific environment variables
 
     ```sh
     NODE_INDEX=1 \
@@ -32,22 +32,6 @@ You can simulate the system on a single machine by running multiple Docker conta
 
 4. Run the container
     ```sh
-    sudo docker run -it \
-    --net nb-net \
-    --ip ${IP} \
-    -p ${PORT}:${PORT} \
-    -e NODE_INDEX=${NODE_INDEX} \
-    -e NUM_NODES=${NUM_NODES} \
-    -e IS_BOOTSTRAP=${IS_BOOTSTRAP} \
-    -e BOOTSTRAP_URL=${BOOTSTRAP_URL} \
-    -e BOOTSTRAP_PORT=${BOOTSTRAP_PORT} \
-    -e DIFFICULTY=${DIFFICULTY} \
-    -e BLOCK_CAPACITY=${BLOCK_CAPACITY} \
-    -e PASSPHRASE=${PASSPHRASE} \
-    -e URL=${URL} \
-    -e PORT=${PORT} \
-    -v `pwd`:/app \
-    -v `pwd`/node_modules:/app/node_modules \
-    nb-backend
+    sudo ./node.sh
     ```
     Auto-reload works great for testing too!
