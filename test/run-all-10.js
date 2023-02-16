@@ -27,7 +27,7 @@ const nodes = [
 ];
 
 const commands = nodes.map((node) => {
-	const { INDEX, URL, PORT, NUM_NODES } = node;
+	const { INDEX, URL, PORT } = node;
 	const command = `./process_transactions.sh ${INDEX} ${URL} ${PORT} 10`;
 	return new Promise((resolve, reject) => {
 		exec(command, (error, stdout, stderr) => {

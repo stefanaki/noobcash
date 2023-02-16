@@ -114,25 +114,27 @@ export default class Node implements INode {
     }
 
     async postTransaction(recipientId: number, amount: number) {
-        if (recipientId < 0 || recipientId > this.ring.length - 1)
-            throw new NoobcashException('Recipient with given ID not found', 404);
         if (recipientId === this.index)
             throw new NoobcashException('Recipient cannot be the same as the sender', 400);
+
+        const receiver = this.ring.find(node => node.index === recipientId);
+        if (!receiver)
+            throw new NoobcashException('Recipient with given ID not found', 404);
 
         const newTransaction = new Transaction({
             amount,
             senderAddress: this.publicKey,
-            receiverAddress: this.ring[recipientId].publicKey,
+            receiverAddress: receiver.publicKey,
             timestamp: Date.now(),
         });
 
         this.transactionService.signTransaction(newTransaction, this.wallet.privateKey);
 
-        this.transactionService.enqueueTransaction(newTransaction);
         await this.broadcast('PUT', 'transaction', {
             transaction: newTransaction,
         });
-
+        this.transactionService.enqueueTransaction(newTransaction);
+        
         if (this.transactionService.pendingTransactions.length >= config.blockCapacity) {
             this.initMining();
         }
@@ -146,14 +148,16 @@ export default class Node implements INode {
         }
     }
 
-    getLatestBlockTransactions(): LatestBlockTransactionsDto[] {
+    getLatestBlockTransactions(): LatestBlockTransactionsDto {
         const latestBlock = this.blockchainService.getLatestMinedBlock();
 
-        return latestBlock.transactions
+        const transactions = latestBlock.transactions
             .filter(t => t.senderAddress === this.publicKey || t.receiverAddress === this.publicKey)
             .map(t => {
-                const recipientId = this.ring.find(node => node.publicKey === t.receiverAddress)?.index ?? -1;
-                const senderId = this.ring.find(node => node.publicKey === t.senderAddress)?.index ?? -1;
+                const recipientId =
+                    this.ring.find(node => node.publicKey === t.receiverAddress)?.index ?? -1;
+                const senderId =
+                    this.ring.find(node => node.publicKey === t.senderAddress)?.index ?? -1;
 
                 return {
                     recipientId,
@@ -166,6 +170,8 @@ export default class Node implements INode {
                     amount: t.amount,
                 };
             });
+
+        return { transactions: transactions };
     }
 
     getBlockchain() {

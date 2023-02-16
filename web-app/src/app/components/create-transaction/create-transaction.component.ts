@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import NodeService from 'src/app/services/node.service';
@@ -13,7 +13,7 @@ import INode from 'src/app/shared/interfaces/node.interface';
 })
 export class CreateTransactionComponent implements OnInit {
   ring: INode[] = [];
-  createTransactionForm;
+  createTransactionForm!: FormGroup;
 
   constructor(
     public nodeService: NodeService,
@@ -21,9 +21,11 @@ export class CreateTransactionComponent implements OnInit {
     private http: HttpClient,
     private snackBar: MatSnackBar,
     private dialogRef: MatDialogRef<CreateTransactionComponent>
-  ) {
+  ) {}
+
+  ngOnInit(): void {
     this.ring = this.nodeService.ring.filter(
-      (node) => node.index !== this.nodeService.self.index
+      (node) => node.publicKey !== this.nodeService.self.publicKey
     );
 
     this.createTransactionForm = this.formBuilder.group({
@@ -31,8 +33,6 @@ export class CreateTransactionComponent implements OnInit {
       amount: ['', Validators.required],
     });
   }
-
-  ngOnInit(): void {}
 
   get recipientControl() {
     return this.createTransactionForm.controls.recipient;
@@ -52,14 +52,18 @@ export class CreateTransactionComponent implements OnInit {
       })
       .subscribe(
         (data) => {
-          this.snackBar.open(`Transaction created and is in pending state`, 'OK', {
-            duration: 3000,
-          });
+          this.snackBar.open(
+            `Transaction created and is in pending state`,
+            'OK',
+            {
+              duration: 3000,
+            }
+          );
 
           this.dialogRef.close();
         },
         (err) => {
-          this.snackBar.open(`Error submitting transaction`,'OK', {
+          this.snackBar.open(`Error submitting transaction`, 'OK', {
             duration: 3000,
           });
         }

@@ -39,7 +39,7 @@ class MinerService {
             });
 
             if (currentHash.startsWith(target)) {
-                logger.info(`Found nonce: ${currentHash} in ${Date.now() - startTime} ms`);
+                logger.warn(`Found nonce: ${currentHash} in ${Date.now() - startTime} ms`);
                 b.nonce = nonce;
                 b.currentHash = currentHash;
                 this.isMining = false;

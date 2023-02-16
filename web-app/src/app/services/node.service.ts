@@ -12,7 +12,7 @@ export default class NodeService {
     index: 0,
     port: '',
     publicKey: '',
-    url: ''
+    url: '',
   };
 
   constructor(private http: HttpClient) {}
@@ -21,8 +21,13 @@ export default class NodeService {
     this.self.url = url;
     this.self.port = port;
 
-    return this.http
-      .get<{ ring: INode[] }>(`${url}:${port}/ring`)
-      .pipe(tap(({ ring }) => (this.ring = ring)));
+    return this.http.get<{ ring: INode[] }>(`${url}:${port}/ring`).pipe(
+      tap(({ ring }) => {
+        this.ring = ring;
+
+        const node = this.ring.find((node) => node.url === url);
+        if (node) this.self = node;
+      })
+    );
   }
 }

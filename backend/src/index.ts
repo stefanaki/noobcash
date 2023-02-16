@@ -3,10 +3,18 @@ import Node from './entities/node.entity';
 import logger from './utilities/logger';
 import express, { Request, Response } from 'express';
 import BootstrapNode from './entities/bootstrap-node.entity';
-import IBlock from './interfaces/block.interface';
 import NoobcashException from './utilities/noobcash-exception';
 import cors from 'cors';
-import { BalanceDto, BlockchainDto, NodeDto, RingDto, TransactionDto } from './interfaces/api.dto';
+import {
+    BalanceDto,
+    BlockchainDto,
+    BlockDto,
+    LatestBlockTransactionsDto,
+    MessageResponseDto,
+    NodeDto,
+    RingDto,
+    TransactionDto,
+} from './interfaces/api.dto';
 
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
@@ -21,7 +29,7 @@ if (node instanceof BootstrapNode) {
     app.post('/node', async (req: Request<any, any, NodeDto>, res: Response) => {
         try {
             await node.insertNodeToRing(req.body.node);
-            res.status(200).json({ nodeId: node.ring.length - 1 });
+            res.status(200).json({ message: 'OK' });
         } catch (e) {
             const error = e as NoobcashException;
             res.status(error.code).json({ message: error.message });
@@ -48,7 +56,7 @@ app.post('/ring', (req: Request<any, any, RingDto>, res: Response) => {
 });
 
 // Get Blockchain and UTXO's
-app.get('/blockchain', (_, res: Response) => {
+app.get('/blockchain', (_, res: Response<BlockchainDto | MessageResponseDto>) => {
     try {
         const { blockchain, currentBlock, utxos, pendingTransactions } = node.getBlockchain();
 
@@ -86,30 +94,20 @@ app.get('/blockchain_test', (_, res: Response) => {
 });
 
 // Set the node state
-app.post(
-    '/blockchain',
-    (
-        req: Request<
-            any,
-            any,
-            BlockchainDto
-        >,
-        res: Response,
-    ) => {
-        try {
-            const { blockchain, currentBlock, utxos, pendingTransactions } = req.body;
+app.post('/blockchain', (req: Request<any, any, BlockchainDto>, res: Response) => {
+    try {
+        const { blockchain, currentBlock, utxos, pendingTransactions } = req.body;
 
-            node.setState(blockchain, currentBlock, utxos, pendingTransactions);
-            res.status(200).json({ message: 'OK' });
-        } catch (e) {
-            const error = e as NoobcashException;
-            res.status(error.code).json({ message: error.message });
-        }
-    },
-);
+        node.setState(blockchain, currentBlock, utxos, pendingTransactions);
+        res.status(200).json({ message: 'OK' });
+    } catch (e) {
+        const error = e as NoobcashException;
+        res.status(error.code).json({ message: error.message });
+    }
+});
 
 // Impose latest block to all nodes, after successful mining
-app.post('/block', async (req: Request<any, any, { block: IBlock, stateChecksum: string }>, res: Response) => {
+app.post('/block', async (req: Request<any, any, BlockDto>, res: Response) => {
     try {
         await node.postBlock(req.body.block, req.body.stateChecksum);
         res.status(200).json({ message: 'OK' });
@@ -120,10 +118,10 @@ app.post('/block', async (req: Request<any, any, { block: IBlock, stateChecksum:
 });
 
 // Get latest block's transactions
-app.get('/transaction', (_, res: Response) => {
+app.get('/transaction', (_, res: Response<LatestBlockTransactionsDto | MessageResponseDto>) => {
     try {
         const transactions = node.getLatestBlockTransactions();
-        res.status(200).json({ transactions });
+        res.status(200).json(transactions);
     } catch (e) {
         const error = e as NoobcashException;
         res.status(error.code).json({ message: error.message });
@@ -146,18 +144,15 @@ app.post(
 );
 
 // Broadcast new transaction
-app.put(
-    '/transaction',
-    async (req: Request<any, any, TransactionDto>, res: Response) => {
-        try {
-            await node.putTransaction(req.body.transaction);
-            res.status(200).json({ message: 'OK' });
-        } catch (e) {
-            const error = e as NoobcashException;
-            res.status(error.code).json({ message: error.message });
-        }
-    },
-);
+app.put('/transaction', async (req: Request<any, any, TransactionDto>, res: Response) => {
+    try {
+        await node.putTransaction(req.body.transaction);
+        res.status(200).json({ message: 'OK' });
+    } catch (e) {
+        const error = e as NoobcashException;
+        res.status(error.code).json({ message: error.message });
+    }
+});
 
 // Get wallet balance
 app.get('/balance', (_, res: Response<BalanceDto>) => {
@@ -176,11 +171,7 @@ app.get('/balance_test', (req, res) => {
         }
     });
 
-    res.status(200).json({balances});
+    res.status(200).json({ balances });
 });
-
-app.get('/queue', (req, res) => 
-    res.status(200).json({queue: node.transactionService.getPendingTransactionsArray().map(t => t.transactionId)})
-)
 
 app.listen(config.port, () => logger.info(`Started listening on ${config.url}:${config.port}`));
