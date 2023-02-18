@@ -1,5 +1,5 @@
 import logger from '../utilities/logger';
-import IBlock from '../interfaces/block.interface';
+import Block from '../entities/block.entity';
 import hash from '../utilities/hash';
 import config from '../config';
 
@@ -19,7 +19,7 @@ class MinerService {
         this.isMiningAborted = true;
     }
 
-    async mineBlock(b: IBlock): Promise<boolean> {
+    async mineBlock(b: Block): Promise<boolean> {
         this.isMiningAborted = false;
         this.isMining = true;
         logger.warn(`Mining block ${b.index}...`);

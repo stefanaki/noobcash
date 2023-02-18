@@ -2,11 +2,12 @@ import INode from '../interfaces/node.interface';
 import Node from './node.entity';
 import config from '../config';
 import logger from '../utilities/logger';
-import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
 import Transaction from './transaction.entity';
 import TransactionOutput from './transaction-output.entity';
 import httpRequest from '../utilities/http';
+import { BlockchainService, TransactionService } from '../services';
+import Block from './block.entity';
 
 export default class BootstrapNode extends Node {
     constructor() {
@@ -36,10 +37,10 @@ export default class BootstrapNode extends Node {
             endpoint: 'blockchain',
             method: 'POST',
             body: {
-                blockchain: this.blockchainService.getChain(),
-                currentBlock: this.blockchainService.getCurrentBlock(),
-                utxos: Object.fromEntries(this.transactionService.getAllUtxos()),
-                pendingTransactions: this.transactionService.getPendingTransactionsArray(),
+                blockchain: BlockchainService.getChain(),
+                currentBlock: BlockchainService.getCurrentBlock(),
+                utxos: Object.fromEntries(TransactionService.getAllUtxos()),
+                pendingTransactions: TransactionService.getPendingTransactionsArray(),
             },
         });
 
@@ -59,25 +60,18 @@ export default class BootstrapNode extends Node {
             genesisTransaction.amount,
         );
 
-        this.transactionService.setTransactionOutputs(genesisTransaction, [genesisUtxo]);
-        this.transactionService.signTransaction(genesisTransaction, this.wallet.privateKey);
+        TransactionService.setTransactionOutputs(genesisTransaction, [genesisUtxo]);
+        TransactionService.signTransaction(genesisTransaction, this.wallet.privateKey);
 
-        const genesisBlock: IBlock = {
-            index: 0,
-            timestamp: Date.now(),
-            transactions: [],
-            nonce: 0,
-            previousHash: '1',
-            currentHash: '',
-        };
+        const genesisBlock = new Block(0, '1');
 
         genesisBlock.currentHash = hash(
-            this.blockchainService.getValidatableBlockData(genesisBlock),
+            BlockchainService.getValidatableBlockData(genesisBlock),
         );
 
-        this.blockchainService.setGenesisBlock(genesisBlock);
-        this.transactionService.setInitialUtxo(this.publicKey, genesisUtxo);
-        this.transactionService.enqueueTransaction(genesisTransaction);
+        BlockchainService.setGenesisBlock(genesisBlock);
+        TransactionService.setInitialUtxo(this.publicKey, genesisUtxo);
+        TransactionService.enqueueTransaction(genesisTransaction);
 
         if (config.blockCapacity === 1) {
             this.initMining();

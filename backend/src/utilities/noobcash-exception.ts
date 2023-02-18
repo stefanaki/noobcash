@@ -3,7 +3,7 @@ export default class NoobcashException extends Error {
     code: number;
 
     constructor(message: string, code: number = 400) {
-        super(message);
+        super();
         this.message = message;
         this.code = code;
     }

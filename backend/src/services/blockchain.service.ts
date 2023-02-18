@@ -1,32 +1,25 @@
 import IBlockchain from '../interfaces/blockchain.interface';
 import logger from '../utilities/logger';
-import IBlock from '../interfaces/block.interface';
 import hash from '../utilities/hash';
 import Transaction from '../entities/transaction.entity';
 import NoobcashException from '../utilities/noobcash-exception';
 import transactionService from './transaction.service';
+import Block from '../entities/block.entity';
 
 class BlockchainService {
     private chain: IBlockchain = {
         blocks: [],
     };
 
-    private currentBlock: IBlock = {
-        currentHash: '0',
-        previousHash: '0',
-        nonce: 1,
-        index: 0,
-        timestamp: Date.now(),
-        transactions: [],
-    };
+    private currentBlock = new Block(0, '0', '0')
 
     constructor() {}
 
-    getBlock(chain: IBlockchain = this.chain, index: number): IBlock {
+    getBlock(chain: IBlockchain = this.chain, index: number): Block {
         return chain.blocks[index];
     }
 
-    validateBlock(chain: IBlockchain = this.chain, block: IBlock) {
+    validateBlock(chain: IBlockchain = this.chain, block: Block) {
         if (block.index === 0) return;
 
         // Current block hash matches verifiable data
@@ -53,14 +46,13 @@ class BlockchainService {
                 this.validateBlock(chain, block);
             }
 
-            // logger.info('Blockchain validated');
         } catch (error) {
             logger.error(error);
             throw new NoobcashException(`Chain not validated`, 500);
         }
     }
 
-    getValidatableBlockData(b: IBlock) {
+    getValidatableBlockData(b: Block) {
         return {
             index: b.index,
             // timestamp: b.timestamp,
@@ -75,7 +67,7 @@ class BlockchainService {
         this.chain = blockchain;
     }
 
-    setGenesisBlock(genesisBlock: IBlock) {
+    setGenesisBlock(genesisBlock: Block) {
         this.chain.blocks = [];
         this.currentBlock = genesisBlock;
     }
@@ -84,25 +76,16 @@ class BlockchainService {
         return this.chain;
     }
 
-    insertBlock(b: IBlock) {
+    insertBlock(b: Block) {
         if (b.index < this.currentBlock.index) return;
 
         this.validateBlock(this.chain, b);
 
         this.chain.blocks.push(b);
 
-        const newBlock: IBlock = {
-            index: b.index + 1,
-            currentHash: '',
-            nonce: 0,
-            previousHash: '',
-            timestamp: Date.now(),
-            transactions: [],
-        };
-
+        const newBlock = new Block(b.index + 1, b.currentHash);
         const newBlockCurrentHash = hash(this.getValidatableBlockData(newBlock));
         newBlock.currentHash = newBlockCurrentHash;
-        newBlock.previousHash = b.currentHash;
 
         this.currentBlock = newBlock;
         this.validateChain(this.chain);
@@ -129,7 +112,7 @@ class BlockchainService {
         this.currentBlock.currentHash = hash(this.getValidatableBlockData(this.currentBlock));
     }
 
-    setCurrentBlock(currentBlock: IBlock) {
+    setCurrentBlock(currentBlock: Block) {
         this.currentBlock = currentBlock;
     }
 
