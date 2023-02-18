@@ -15,7 +15,7 @@ export class BalanceCardComponent implements OnInit, OnDestroy {
   constructor(private http: HttpClient, private nodeService: NodeService) {}
 
   ngOnDestroy(): void {
-    this.balance$?.subscribe();
+
   }
 
   ngOnInit(): void {

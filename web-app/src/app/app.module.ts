@@ -12,7 +12,9 @@ import { TransactionsTableComponent } from './components/transactions-table/tran
 import { BalanceCardComponent } from './components/balance-card/balance-card.component';
 import { HelpComponent } from './components/help/help.component';
 import { CreateTransactionComponent } from './components/create-transaction/create-transaction.component';
-
+import { BalancesChartComponent } from './components/balances-chart/balances-chart.component';
+import { ChartsModule } from 'ng2-charts';
+import { TransactionsPageComponent } from './pages/transactions-page/transactions-page.component';
 
 @NgModule({
   declarations: [
@@ -21,7 +23,9 @@ import { CreateTransactionComponent } from './components/create-transaction/crea
     TransactionsTableComponent,
     BalanceCardComponent,
     HelpComponent,
-    CreateTransactionComponent
+    CreateTransactionComponent,
+    BalancesChartComponent,
+    TransactionsPageComponent,
   ],
   imports: [
     BrowserModule,
@@ -30,9 +34,11 @@ import { CreateTransactionComponent } from './components/create-transaction/crea
     MaterialResourcesModule,
     ReactiveFormsModule,
     FormsModule,
-    HttpClientModule
+    HttpClientModule,
+    ChartsModule,
   ],
-  providers: [],
-  bootstrap: [AppComponent]
+  providers: [
+  ],
+  bootstrap: [AppComponent],
 })
-export class AppModule { }
+export class AppModule {}
