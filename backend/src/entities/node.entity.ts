@@ -105,15 +105,30 @@ export default class Node implements INode {
         return utxos.reduce((total, utxo) => total + utxo.amount, 0);
     }
 
+    getAllWalletBalances(): number[] {
+        const balances: number[] = [];
+
+        this.ring.forEach(node => {
+            const nodeUtxos = TransactionService.getUtxos(node.publicKey);
+
+            if (!nodeUtxos) {
+                balances.push(0);
+            } else {
+                balances.push(nodeUtxos.reduce((acc, curr) => acc + curr.amount, 0));
+            }
+        });
+
+        return balances;
+    }
+
     async postTransaction(recipientId: number, amount: number) {
         if (recipientId === this.index)
             throw new NoobcashException('Recipient cannot be the same as the sender', 400);
 
-        
         let receiver: INode | undefined;
 
         if (this.ring.length < config.numOfNodes) {
-            receiver = this.ring.find(node => node.index === recipientId)
+            receiver = this.ring.find(node => node.index === recipientId);
         } else {
             receiver = this.ring[recipientId];
         }
@@ -134,7 +149,7 @@ export default class Node implements INode {
             transaction: newTransaction,
         });
         TransactionService.enqueueTransaction(newTransaction);
-        
+
         if (TransactionService.pendingTransactions.length >= config.blockCapacity) {
             this.initMining();
         }
@@ -260,9 +275,7 @@ export default class Node implements INode {
                 }
 
                 if (TransactionService.pendingTransactionsExist())
-                    logger.info(
-                        `Queue: Pending ${TransactionService.pendingTransactions.length}`,
-                    );
+                    logger.info(`Queue: Pending ${TransactionService.pendingTransactions.length}`);
             }
         } catch {
             this.resolveConflicts();

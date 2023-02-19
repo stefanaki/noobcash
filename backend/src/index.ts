@@ -15,7 +15,6 @@ import {
     RingDto,
     TransactionDto,
 } from './interfaces/api.dto';
-import { TransactionService } from './services';
 
 const app = express();
 const node: Node = config.isBootstrap ? new BootstrapNode() : new Node();
@@ -160,19 +159,9 @@ app.get('/balance', (_, res: Response<BalanceDto>) => {
     res.status(200).json({ balance: node.getWalletBalance() });
 });
 
-app.get('/balances', (req, res) => {
-    let balances: number[] = [];
-
-    node.ring.forEach(n => {
-        const u = TransactionService.getUtxos(n.publicKey);
-        if (!u) {
-            balances.push(0);
-        } else {
-            balances.push(u.reduce((acc, curr) => acc + curr.amount, 0));
-        }
-    });
-
-    res.status(200).json({ balances });
+// Get all node balances
+app.get('/balances', (_, res) => {
+    res.status(200).json({ balances: node.getAllWalletBalances() })
 });
 
 app.listen(config.port, () => logger.info(`Started listening on ${config.url}:${config.port}`));

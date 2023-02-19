@@ -30,7 +30,7 @@ const nodes = [
 // ];
 
 const requests = nodes.map(n => {
-    const command = `curl ${n.URL}:${n.PORT}/balance_test`
+    const command = `curl ${n.URL}:${n.PORT}/balances`
     return new Promise((resolve, reject) => {
 		exec(command, (error, stdout, stderr) => {
 			if (error) {

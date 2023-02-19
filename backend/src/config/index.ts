@@ -9,7 +9,7 @@ export default {
     numOfNodes: Number(process.env.NUM_NODES ?? 5),
     url: process.env.URL ?? 'http://192.168.0.10',
     port: process.env.PORT ?? '3000',
-    blockCapacity: /**Number(process.env.BLOCK_CAPACITY ?? 5) */ 10,
+    blockCapacity: Number(process.env.BLOCK_CAPACITY ?? 5),
     passphrase: process.env.PASSPHRASE ?? 'dev',
     bootstrapUrl: process.env.BOOTSTRAP_URL ?? 'http://192.168.0.10',
     bootstrapPort: process.env.BOOTSTRAP_PORT ?? '3000',
