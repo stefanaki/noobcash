@@ -15,10 +15,10 @@ The CLI tool can perform the following commands:
 ```
 $ ./cli.sh help
 Commands:
-balance - View your wallet balance
-transaction <recipient_id> <amount> - Make a transaction to the specified recipient with the specified amount
-view - View all transactions
-help - View this help message
+balance - view your wallet balance
+transaction <recipient_id> <amount> - make a transaction to the specified recipient with the specified amount
+view - view all transactions
+help - view this help message
 ```
 
 ## Web-App
