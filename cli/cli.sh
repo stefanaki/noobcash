@@ -38,7 +38,7 @@ get_balance() {
 
 # Function to make a POST request to the transaction endpoint
 make_transaction() {
-  response=$(curl -s -X POST "${URL}:${PORT}/transaction" -d "recipient_id=$1" -d "amount=$2")
+  response=$(curl -s -X POST "${URL}:${PORT}/transaction" -H "Content-Type: application/json" -d '{"recipientId": '$1', "amount": '$2'}')
 
   # Check if the request was successful
   if [ $? -ne 0 ]; then
@@ -58,7 +58,7 @@ make_transaction() {
 
 # Function to make a GET request to the view endpoint
 view_transactions() {
-  response=$(curl -s "${URL}:${PORT}/view")
+  response=$(curl -s "${URL}:${PORT}/transaction")
 
   # Check if the request was successful
   if [ $? -ne 0 ]; then
@@ -66,14 +66,17 @@ view_transactions() {
   fi
 
   # Get the transactions from the response body
-  transactions=$(echo $response | jq -r '.transactions')
+  # transactions=$(echo $response | jq -r '.transactions')
+
+  transactions=$(echo $response | jq -r '.transactions[] | {transactionId, timestamp, transactionType, senderId, recipientId, amount}')
+
 
   # Check if the transactions were found in the response
   if [ -z "$transactions" ]; then
     handle_error "Failed to find transactions in response"
   fi
 
-  echo "Transactions:"
+  echo "Latest Block Transactions:"
   echo "$transactions"
 }
 

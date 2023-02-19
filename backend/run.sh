@@ -1,18 +1,16 @@
 NODE_INDEX=1 \
 NUM_NODES=5 \
-IP=192.168.0.11 \
-URL=http://${IP} \
+IP_ADDR=192.168.0.3 \
+URL=http://${IP_ADDR} \
 PORT=300${NODE_INDEX} \
 IS_BOOTSTRAP=false \
-BOOTSTRAP_URL=http://192.168.0.10 \
+BOOTSTRAP_URL=http://192.168.0.2 \
 BOOTSTRAP_PORT=3000 \
 DIFFICULTY=4 \
 BLOCK_CAPACITY=5 \
-PASSPHRASE=node-pass-1 \
+PASSPHRASE=nb-key-${NODE_INDEX} \
 
-sudo docker run -it \
-    --net nb-net \
-    --ip ${IP} \
+sudo docker run -it --init \
     -p ${PORT}:${PORT} \
     -e NODE_INDEX=${NODE_INDEX} \
     -e NUM_NODES=${NUM_NODES} \
@@ -24,6 +22,4 @@ sudo docker run -it \
     -e PASSPHRASE=${PASSPHRASE} \
     -e URL=${URL} \
     -e PORT=${PORT} \
-    -v `pwd`:/app \
-    -v `pwd`/node_modules:/app/node_modules \
-    nb-backend
+    giorgosstef/nb-backend:dist

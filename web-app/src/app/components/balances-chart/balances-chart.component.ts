@@ -26,7 +26,7 @@ export class BalancesChartComponent implements OnInit, OnDestroy {
     responsive: true,
     animation: { duration: 0 },
     legend: { display: true, align: 'center' },
-    title: { display: true },
+    title: { display: true, text: 'Wallet Balances' },
   };
   public doughnutChartLabels: Array<any> = [];
   public doughnutChartType: ChartType = 'doughnut';

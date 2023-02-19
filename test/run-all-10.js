@@ -1,16 +1,16 @@
 const { exec } = require('child_process');
 
 // const nodes = [
-// 	{ INDEX: 0, URL: 'http://snf-34464.ok-kno.grnetcloud.net', PORT: 3000 },
-// 	{ INDEX: 1, URL: 'http://snf-34465.ok-kno.grnetcloud.net', PORT: 3001 },
-// 	{ INDEX: 2, URL: 'http://snf-34466.ok-kno.grnetcloud.net', PORT: 3002 },
-// 	{ INDEX: 3, URL: 'http://snf-34467.ok-kno.grnetcloud.net', PORT: 3003 },
-// 	{ INDEX: 4, URL: 'http://snf-34468.ok-kno.grnetcloud.net', PORT: 3004 },
-// 	{ INDEX: 5, URL: 'http://snf-34464.ok-kno.grnetcloud.net', PORT: 3005 },
-// 	{ INDEX: 6, URL: 'http://snf-34465.ok-kno.grnetcloud.net', PORT: 3006 },
-// 	{ INDEX: 7, URL: 'http://snf-34466.ok-kno.grnetcloud.net', PORT: 3007 },
-// 	{ INDEX: 8, URL: 'http://snf-34467.ok-kno.grnetcloud.net', PORT: 3008 },
-// 	{ INDEX: 9, URL: 'http://snf-34468.ok-kno.grnetcloud.net', PORT: 3009 }
+// 	{ INDEX: 0, URL: 'http://snf-34919.ok-kno.grnetcloud.net', PORT: 3000 },
+// 	{ INDEX: 1, URL: 'http://snf-34920.ok-kno.grnetcloud.net', PORT: 3001 },
+// 	{ INDEX: 2, URL: 'http://snf-34921.ok-kno.grnetcloud.net', PORT: 3002 },
+// 	{ INDEX: 3, URL: 'http://snf-34922.ok-kno.grnetcloud.net', PORT: 3003 },
+// 	{ INDEX: 4, URL: 'http://snf-34923.ok-kno.grnetcloud.net', PORT: 3004 },
+// 	{ INDEX: 5, URL: 'http://snf-34919.ok-kno.grnetcloud.net', PORT: 3005 },
+// 	{ INDEX: 6, URL: 'http://snf-34920.ok-kno.grnetcloud.net', PORT: 3006 },
+// 	{ INDEX: 7, URL: 'http://snf-34921.ok-kno.grnetcloud.net', PORT: 3007 },
+// 	{ INDEX: 8, URL: 'http://snf-34922.ok-kno.grnetcloud.net', PORT: 3008 },
+// 	{ INDEX: 9, URL: 'http://snf-34923.ok-kno.grnetcloud.net', PORT: 3009 }
 // ];
 
 const nodes = [
