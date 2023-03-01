@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - okeanos
 
 jobs:
   build-and-push:

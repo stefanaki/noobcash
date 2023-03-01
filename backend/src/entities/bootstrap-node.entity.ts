@@ -65,9 +65,7 @@ export default class BootstrapNode extends Node {
 
         const genesisBlock = new Block(0, '1');
 
-        genesisBlock.currentHash = hash(
-            BlockchainService.getValidatableBlockData(genesisBlock),
-        );
+        genesisBlock.currentHash = hash(BlockchainService.getValidatableBlockData(genesisBlock));
 
         BlockchainService.setGenesisBlock(genesisBlock);
         TransactionService.setInitialUtxo(this.publicKey, genesisUtxo);

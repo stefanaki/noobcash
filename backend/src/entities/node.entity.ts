@@ -254,6 +254,7 @@ export default class Node implements INode {
         try {
             if (MinerService.isNodeMining() || this.ring.length < config.numOfNodes) return;
 
+            let start = Date.now();
             while (TransactionService.pendingTransactions.length >= config.blockCapacity) {
                 const currentBlock = BlockchainService.getCurrentBlock();
 
@@ -277,6 +278,13 @@ export default class Node implements INode {
                 if (TransactionService.pendingTransactionsExist())
                     logger.info(`Queue: Pending ${TransactionService.pendingTransactions.length}`);
             }
+            let end = Date.now();
+            let passedTransactions = BlockchainService.getChain().blocks.reduce((acc, b) => {
+                acc += b.transactions.length;
+                return acc;
+            }, 0);
+
+            logger.warn(`Throughput: ${(passedTransactions / (end - start)) * 1000}`);
         } catch {
             this.resolveConflicts();
         }

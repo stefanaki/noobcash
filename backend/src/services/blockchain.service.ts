@@ -11,7 +11,7 @@ class BlockchainService {
         blocks: [],
     };
 
-    private currentBlock = new Block(0, '0', '0')
+    private currentBlock = new Block(0, '0', '0');
 
     constructor() {}
 
@@ -45,7 +45,6 @@ class BlockchainService {
 
                 this.validateBlock(chain, block);
             }
-
         } catch (error) {
             logger.error(error);
             throw new NoobcashException(`Chain not validated`, 500);
