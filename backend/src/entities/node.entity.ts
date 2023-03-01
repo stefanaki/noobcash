@@ -285,6 +285,7 @@ export default class Node implements INode {
             }, 0);
 
             logger.warn(`Throughput: ${(passedTransactions / (end - start)) * 1000}`);
+            logger.warn(`Block time: ${MinerService.totalMiningTime / (BlockchainService.getChain().blocks.length - 1)}`);
         } catch {
             this.resolveConflicts();
         }

@@ -8,6 +8,7 @@ const MAX_INT = Number.MAX_SAFE_INTEGER;
 class MinerService {
     private isMiningAborted = false;
     private isMining = false;
+    public totalMiningTime = 0;
 
     constructor() {}
 
@@ -39,7 +40,9 @@ class MinerService {
             });
 
             if (currentHash.startsWith(target)) {
-                logger.warn(`Found nonce: ${currentHash} in ${Date.now() - startTime} ms`);
+                let miningTime = Date.now() - startTime;
+                logger.warn(`Found nonce: ${currentHash} in ${miningTime} ms`);
+                this.totalMiningTime += miningTime;
                 b.nonce = nonce;
                 b.currentHash = currentHash;
                 this.isMining = false;
